@@ -1,4 +1,4 @@
-  import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -12,11 +12,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
   String _selectedFilter = 'Semua'; // Untuk mengelola filter kegiatan yang dipilih
 
   // Daftar halaman untuk Bottom Navigation Bar
-  static final List<Widget> _bottomNavPages = <Widget>[
-    _buildTasksPage(), // Ini akan kita isi dengan UI Dashboard Kegiatan
-    const Center(child: Text('Halaman Kalender')), // Placeholder
-    const Center(child: Text('Halaman Milikku')), // Placeholder
-  ];
+  late final List<Widget> _bottomNavPages; // Akan diinisialisasi di initState
+
+  @override
+  void initState() {
+    super.initState();
+    _bottomNavPages = <Widget>[
+      _buildTasksPage(), // Sekarang memanggil metode non-statis
+      const Center(child: Text('Halaman Kalender')),
+      const Center(child: Text('Halaman Milikku')),
+    ];
+  }
 
   void _onBottomNavItemTapped(int index) {
     setState(() {
@@ -27,8 +33,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // AppBar dihilangkan karena kita akan membuat header kustom di body
-      body: _bottomNavPages.elementAt(_selectedIndex), // Menampilkan halaman sesuai Bottom Nav
+      body: _bottomNavPages.elementAt(_selectedIndex),
 
       bottomNavigationBar: BottomNavigationBar(
         items: const <BottomNavigationBarItem>[
@@ -62,9 +67,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   // --- Metode Baru untuk Membangun Halaman Tugas (Dashboard Kegiatan) ---
-  static Widget _buildTasksPage() {
-    // Untuk sementara, ini akan menampilkan konten kosong
-    // Nanti akan kita kembangkan untuk menampilkan daftar tugas
+  // Sekarang bukan static
+  Widget _buildTasksPage() {
     bool hasTasks = false; // Ganti ini dengan logika pengecekan tugas
 
     return Column(
@@ -75,9 +79,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Placeholder untuk area status bar (waktu, sinyal, dll.)
-              // Di sini kita tidak bisa langsung mengakses status bar OS
-              // Tapi kita bisa memberikan padding atau SizedBox untuk menjaga ruang
               const SizedBox(height: 24), // Memberikan ruang di atas untuk status bar
 
               // Bagian filter (Semua, Kerja, Pribadi, Wishlist)
@@ -93,7 +94,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     const SizedBox(width: 8),
                     _buildFilterChip('Wishlist'),
                     const SizedBox(width: 8),
-                    // Tombol 3 titik di desain bisa jadi menu tambahan
                     IconButton(
                       icon: const Icon(Icons.more_vert),
                       onPressed: () {
@@ -108,46 +108,45 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
         Expanded(
           child: hasTasks
-              ? _buildTaskList() // Nanti akan menampilkan daftar tugas
-              : _buildEmptyTasksState(), // Menampilkan ilustrasi dan pesan
+              ? _buildTaskList()
+              : _buildEmptyTasksState(),
         ),
       ],
     );
   }
 
-  // Widget untuk membangun Chip Filter
-  static Widget _buildFilterChip(String label) {
+  // Widget untuk membangun Chip Filter (Sekarang bukan static)
+  Widget _buildFilterChip(String label) {
     return ChoiceChip(
       label: Text(label),
-      selected: _selectedFilter == label, // Perbaikan: _selectedFilter tidak statis
+      selected: _selectedFilter == label,
       onSelected: (bool selected) {
-        // Perbaikan: Tidak bisa menggunakan setState di metode statis
-        // Aksi pemilihan chip akan ditangani di stateful widget utama
-        // Untuk saat ini, kita biarkan kosong atau print saja
-        print('Filter $label dipilih: $selected');
+        setState(() {
+          _selectedFilter = label; // Memperbarui state saat chip dipilih
+        });
       },
-      selectedColor: Colors.blue[100], // Warna latar belakang saat dipilih
+      selectedColor: Colors.blue[100],
       labelStyle: TextStyle(
-        color: _selectedFilter == label ? Colors.blue[900] : Colors.grey[700], // Warna teks
+        color: _selectedFilter == label ? Colors.blue[900] : Colors.grey[700],
       ),
     );
   }
 
   // Widget untuk membangun daftar tugas (placeholder)
-  static Widget _buildTaskList() {
+  Widget _buildTaskList() {
     return const Center(
       child: Text('Daftar Tugas Akan Tampil Di Sini'),
     );
   }
 
   // Widget untuk membangun tampilan kosong (ilustrasi dan pesan)
-  static Widget _buildEmptyTasksState() {
+  Widget _buildEmptyTasksState() {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         // Placeholder Ilustrasi
         Image.asset(
-          'assets/images/no_tasks_illustration.png', // Ganti dengan path ilustrasi aslimu
+          'assets/images/no_tasks_illustration.png',
           height: 200,
         ),
         const SizedBox(height: 30),
@@ -156,7 +155,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           margin: const EdgeInsets.symmetric(horizontal: 40),
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: Colors.amber[200], // Warna kuning yang mirip desain
+            color: Colors.amber[200],
             borderRadius: BorderRadius.circular(10),
           ),
           child: const Text(
