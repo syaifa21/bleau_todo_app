@@ -173,7 +173,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       const SizedBox(height: 16),
                       // Tanggal Kegiatan
                       ListTile(
-                        title: Text('Tanggal Kegiatan: ${dialogSelectedDate?.toLocal().toString().split(' ')[0] ?? 'Pilih Tanggal'}'),
+                        title: Text('Tanggal Kegiatan: ${dialogSelectedDate?.toLocal().toString().split(' ')[0] ?? 'Pilih Tanggal'}'), // Perbaikan null-safety
                         trailing: const Icon(Icons.calendar_today),
                         onTap: () async {
                           final DateTime? picked = await showDatePicker(
@@ -215,7 +215,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       const SizedBox(height: 16),
                       // Deadline Kegiatan (Tanggal dan Jam)
                       ListTile(
-                        title: Text('Deadline: ${dialogSelectedDeadline?.toLocal().toString().split('.')[0] ?? 'Pilih Tanggal & Jam'}'),
+                        title: Text('Deadline: ${dialogSelectedDeadline?.toLocal().toString().split('.')[0] ?? 'Pilih Tanggal & Jam'}'), // Perbaikan null-safety
                         trailing: const Icon(Icons.access_time),
                         onTap: () async {
                           final DateTime? pickedDate = await showDatePicker(
@@ -330,6 +330,67 @@ class _DashboardScreenState extends State<DashboardScreen> {
           },
         );
       },
+    );
+  }
+
+  // --- Metode untuk Menampilkan Dialog Detail Kegiatan ---
+  void _showTaskDetailDialog(BuildContext context, Task task) {
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: Text(task.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+          content: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                const Divider(),
+                _buildDetailRow(
+                    'Detail Kegiatan', task.detail ?? '-'), // Jika detail null, tampilkan '-'
+                _buildDetailRow('Tanggal Kegiatan', task.date.toLocal().toString().split(' ')[0]),
+                _buildDetailRow('Status Kegiatan', task.status),
+                _buildDetailRow('Jenis Kegiatan', task.type),
+                if (task.deadline != null)
+                  _buildDetailRow('Deadline', task.deadline!.toLocal().toString().split('.')[0]),
+                // Placeholder untuk lampiran. Nanti bisa ditambahkan logika untuk melihat/membuka file
+                _buildDetailRow('Lampiran', task.attachmentPath ?? 'Tidak ada'),
+                const Divider(),
+              ],
+            ),
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Tutup'),
+              onPressed: () {
+                Navigator.of(dialogContext).pop(); // Tutup dialog
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // Widget pembantu untuk baris detail
+  Widget _buildDetailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '$label:',
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            value,
+            style: const TextStyle(fontSize: 16),
+          ),
+          const SizedBox(height: 8), // Spasi antar baris detail
+        ],
+      ),
     );
   }
 
@@ -467,81 +528,86 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
         return Card(
           margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  task.name,
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                if (task.detail != null && task.detail!.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4.0),
-                    child: Text(task.detail!),
+          child: InkWell( // <--- InkWell untuk tap detail
+            onTap: () {
+              _showTaskDetailDialog(context, task); // Panggil dialog detail saat Card diketuk
+            },
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    task.name,
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Icon(Icons.calendar_today, size: 16, color: Colors.grey[600]),
-                    const SizedBox(width: 4),
-                    Text('Tanggal: ${task.date.toLocal().toString().split(' ')[0]}'),
-                  ],
-                ),
-                if (task.deadline != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4.0),
-                    child: Row(
-                      children: [
-                        Icon(Icons.access_time, size: 16, color: Colors.grey[600]),
-                        const SizedBox(width: 4),
-                        Text('Deadline: ${task.deadline!.toLocal().toString().split('.')[0]}'),
-                      ],
+                  if (task.detail != null && task.detail!.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4.0),
+                      child: Text(task.detail!),
                     ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Icon(Icons.calendar_today, size: 16, color: Colors.grey[600]),
+                      const SizedBox(width: 4),
+                      Text('Tanggal: ${task.date.toLocal().toString().split(' ')[0]}'),
+                    ],
                   ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Icon(Icons.category, size: 16, color: Colors.grey[600]),
-                    const SizedBox(width: 4),
-                    Text('Jenis: ${task.type}'),
-                  ],
-                ),
-                Row(
-                  children: [
-                    Icon(Icons.info_outline, size: 16, color: Colors.grey[600]),
-                    const SizedBox(width: 4),
-                    Text('Status: ${task.status}'),
-                  ],
-                ),
-                const SizedBox(height: 8), // Sedikit ruang sebelum tombol aksi
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.edit, color: Colors.blue),
-                      onPressed: () {
-                        // Memanggil dialog yang sama, tapi dengan taskToEdit
-                        _showAddTaskDialog(context, taskToEdit: task);
-                      },
+                  if (task.deadline != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4.0),
+                      child: Row(
+                        children: [
+                          Icon(Icons.access_time, size: 16, color: Colors.grey[600]),
+                          const SizedBox(width: 4),
+                          Text('Deadline: ${task.deadline!.toLocal().toString().split('.')[0]}'),
+                        ],
+                      ),
                     ),
-                    IconButton(
-                      icon: const Icon(Icons.delete, color: Colors.red),
-                      onPressed: () {
-                        // Pastikan taskKey tidak null sebelum memanggil delete
-                        if (taskKey != null) {
-                          _confirmDeleteTask(context, taskKey, task.name);
-                        } else {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Tidak dapat menghapus: Task Key tidak ditemukan.')),
-                          );
-                        }
-                      },
-                    ),
-                  ],
-                ),
-              ],
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Icon(Icons.category, size: 16, color: Colors.grey[600]),
+                      const SizedBox(width: 4),
+                      Text('Jenis: ${task.type}'),
+                    ],
+                  ),
+                  Row(
+                    children: [
+                      Icon(Icons.info_outline, size: 16, color: Colors.grey[600]),
+                      const SizedBox(width: 4),
+                      Text('Status: ${task.status}'),
+                    ],
+                  ),
+                  const SizedBox(height: 8), // Sedikit ruang sebelum tombol aksi
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.edit, color: Colors.blue),
+                        onPressed: () {
+                          // Memanggil dialog yang sama, tapi dengan taskToEdit
+                          _showAddTaskDialog(context, taskToEdit: task);
+                        },
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.delete, color: Colors.red),
+                        onPressed: () {
+                          // Pastikan taskKey tidak null sebelum memanggil delete
+                          if (taskKey != null) {
+                            _confirmDeleteTask(context, taskKey, task.name);
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Tidak dapat menghapus: Task Key tidak ditemukan.')),
+                            );
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         );
