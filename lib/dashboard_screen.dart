@@ -11,25 +11,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
   int _selectedIndex = 0; // Untuk mengelola indeks navigasi bawah
   String _selectedFilter = 'Semua'; // Untuk mengelola filter kegiatan yang dipilih
 
-  // Controller untuk inputan dialog
-  final TextEditingController _namaKegiatanController = TextEditingController();
-  final TextEditingController _detailKegiatanController = TextEditingController();
-
-  // Variabel untuk Datepicker & Dropdown di dialog
-  DateTime? _selectedDate;
-  DateTime? _selectedDeadline;
-  String? _selectedStatus;
-  String? _selectedJenis;
-
-  // Daftar opsi untuk Status Kegiatan
-  final List<String> _statusOptions = ['Belum Dimulai', 'Dalam Proses', 'Selesai'];
-
-  // Daftar opsi untuk Jenis Kegiatan (bisa diperluas nanti)
-  final List<String> _jenisKegiatanOptions = ['Pribadi', 'Kerja', 'Wishlist', 'Lainnya'];
-
-  // GlobalKey untuk form validasi
-  final _formKey = GlobalKey<FormState>();
-
   // Daftar halaman untuk Bottom Navigation Bar
   late final List<Widget> _bottomNavPages;
 
@@ -56,186 +37,243 @@ class _DashboardScreenState extends State<DashboardScreen> {
     });
   }
 
+  @override
+  Widget build(BuildContext context) { // <--- METODE BUILD YANG HILANG/BELUM ADA
+    return Scaffold(
+      body: _bottomNavPages.elementAt(_selectedIndex), // Menampilkan halaman sesuai Bottom Nav
+
+      bottomNavigationBar: BottomNavigationBar(
+        items: const <BottomNavigationBarItem>[
+          BottomNavigationBarItem(
+            icon: Icon(Icons.assignment),
+            label: 'Tugas',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.calendar_today),
+            label: 'Kalender',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person),
+            label: 'Milikku',
+          ),
+        ],
+        currentIndex: _selectedIndex,
+        selectedItemColor: Colors.blue,
+        onTap: _onBottomNavItemTapped,
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          _showAddTaskDialog(context); // Memanggil metode untuk menampilkan dialog
+        },
+        child: const Icon(Icons.add),
+        backgroundColor: Colors.blue,
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+    );
+  }
+
+  // Controller untuk inputan dialog (Dideklarasikan di sini agar bisa diakses di _showAddTaskDialog)
+  final TextEditingController _namaKegiatanController = TextEditingController();
+  final TextEditingController _detailKegiatanController = TextEditingController();
+
+  // Variabel untuk Datepicker & Dropdown di dialog (Dideklarasikan di sini)
+  DateTime? _selectedDate;
+  DateTime? _selectedDeadline;
+  String? _selectedStatus;
+  String? _selectedJenis;
+
+  // Daftar opsi untuk Status Kegiatan
+  final List<String> _statusOptions = ['Belum Dimulai', 'Dalam Proses', 'Selesai'];
+
+  // Daftar opsi untuk Jenis Kegiatan (bisa diperluas nanti)
+  final List<String> _jenisKegiatanOptions = ['Pribadi', 'Kerja', 'Wishlist', 'Lainnya'];
+
+  // GlobalKey untuk form validasi
+  final _formKey = GlobalKey<FormState>();
+
   // --- Metode untuk Menampilkan Dialog Tambah Kegiatan ---
   void _showAddTaskDialog(BuildContext context) {
     // Reset nilai form sebelum membuka dialog
     _namaKegiatanController.clear();
     _detailKegiatanController.clear();
-    _selectedDate = DateTime.now(); // Default tanggal hari ini
-    _selectedDeadline = null;
-    _selectedStatus = null;
-    _selectedJenis = null;
+    // Menggunakan variabel lokal di dalam builder untuk state dialog
+    DateTime? dialogSelectedDate = DateTime.now(); // Default tanggal hari ini
+    DateTime? dialogSelectedDeadline = null;
+    String? dialogSelectedStatus = null;
+    String? dialogSelectedJenis = null;
 
     showDialog(
       context: context,
       builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          title: const Text('Tambah Kegiatan Baru'),
-          content: SingleChildScrollView(
-            child: Form( // Gunakan Form untuk validasi
-              key: _formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: <Widget>[
-                  TextFormField(
-                    controller: _namaKegiatanController,
-                    decoration: const InputDecoration(labelText: 'Nama Kegiatan'),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Nama Kegiatan tidak boleh kosong';
-                      }
-                      return null;
-                    },
-                  ),
-                  TextFormField(
-                    controller: _detailKegiatanController,
-                    decoration: const InputDecoration(labelText: 'Detail Kegiatan'),
-                    maxLines: 3,
-                  ),
-                  const SizedBox(height: 16),
-                  // Tanggal Kegiatan
-                  ListTile(
-                    title: Text('Tanggal Kegiatan: ${_selectedDate != null ? _selectedDate!.toLocal().toString().split(' ')[0] : 'Pilih Tanggal'}'),
-                    trailing: const Icon(Icons.calendar_today),
-                    onTap: () async {
-                      final DateTime? picked = await showDatePicker(
-                        context: context,
-                        initialDate: _selectedDate ?? DateTime.now(),
-                        firstDate: DateTime(2000),
-                        lastDate: DateTime(2101),
-                      );
-                      if (picked != null && picked != _selectedDate) {
-                        setState(() {
-                          _selectedDate = picked;
-                        });
-                        // Untuk memperbarui UI di dialog, perlu setState di statefulBuilder
-                        // Namun, karena ini di dalam showDialog builder, kita biarkan saja dulu
-                        // Atau bisa pakai StatefulBuilder jika ingin langsung refresh dialog
-                      }
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  // Status Kegiatan Dropdown
-                  DropdownButtonFormField<String>(
-                    decoration: const InputDecoration(labelText: 'Status Kegiatan'),
-                    value: _selectedStatus,
-                    items: _statusOptions.map((String status) {
-                      return DropdownMenuItem<String>(
-                        value: status,
-                        child: Text(status),
-                      );
-                    }).toList(),
-                    onChanged: (String? newValue) {
-                      setState(() {
-                        _selectedStatus = newValue;
-                      });
-                    },
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Pilih Status Kegiatan';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  // Deadline Kegiatan (Tanggal dan Jam)
-                  ListTile(
-                    title: Text('Deadline: ${_selectedDeadline != null ? _selectedDeadline!.toLocal().toString().split('.')[0] : 'Pilih Tanggal & Jam'}'),
-                    trailing: const Icon(Icons.access_time),
-                    onTap: () async {
-                      final DateTime? pickedDate = await showDatePicker(
-                        context: context,
-                        initialDate: _selectedDeadline ?? DateTime.now(),
-                        firstDate: DateTime(2000),
-                        lastDate: DateTime(2101),
-                      );
-                      if (pickedDate != null) {
-                        final TimeOfDay? pickedTime = await showTimePicker(
-                          context: context,
-                          initialTime: TimeOfDay.fromDateTime(_selectedDeadline ?? DateTime.now()),
-                        );
-                        if (pickedTime != null) {
-                          setState(() {
-                            _selectedDeadline = DateTime(
-                              pickedDate.year,
-                              pickedDate.month,
-                              pickedDate.day,
-                              pickedTime.hour,
-                              pickedTime.minute,
-                            );
-                          });
-                        }
-                      }
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  // Jenis Kegiatan Dropdown
-                  DropdownButtonFormField<String>(
-                    decoration: const InputDecoration(labelText: 'Jenis Kegiatan'),
-                    value: _selectedJenis,
-                    items: _jenisKegiatanOptions.map((String jenis) {
-                      return DropdownMenuItem<String>(
-                        value: jenis,
-                        child: Text(jenis),
-                      );
-                    }).toList(),
-                    onChanged: (String? newValue) {
-                      setState(() {
-                        _selectedJenis = newValue;
-                      });
-                    },
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Pilih Jenis Kegiatan';
-                      }
-                      return null;
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                  // Placeholder untuk Lampiran
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text('Lampiran (Foto/Video/File)'),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.attach_file),
-                        onPressed: () {
-                          // TODO: Logika untuk memilih file akan ditambahkan di sini
-                          print('Pilih Lampiran');
+        // Menggunakan StatefulBuilder untuk memungkinkan setState di dalam dialog
+        return StatefulBuilder(
+          builder: (BuildContext context, StateSetter setDialogState) {
+            return AlertDialog(
+              title: const Text('Tambah Kegiatan Baru'),
+              content: SingleChildScrollView(
+                child: Form( // Gunakan Form untuk validasi
+                  key: _formKey,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      TextFormField(
+                        controller: _namaKegiatanController,
+                        decoration: const InputDecoration(labelText: 'Nama Kegiatan'),
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Nama Kegiatan tidak boleh kosong';
+                          }
+                          return null;
                         },
+                      ),
+                      TextFormField(
+                        controller: _detailKegiatanController,
+                        decoration: const InputDecoration(labelText: 'Detail Kegiatan'),
+                        maxLines: 3,
+                      ),
+                      const SizedBox(height: 16),
+                      // Tanggal Kegiatan
+                      ListTile(
+                        title: Text('Tanggal Kegiatan: ${dialogSelectedDate != null ? dialogSelectedDate?.toLocal().toString().split(' ')[0] : 'Pilih Tanggal'}'),
+                        trailing: const Icon(Icons.calendar_today),
+                        onTap: () async {
+                          final DateTime? picked = await showDatePicker(
+                            context: context,
+                            initialDate: dialogSelectedDate ?? DateTime.now(),
+                            firstDate: DateTime(2000),
+                            lastDate: DateTime(2101),
+                          );
+                          if (picked != null && picked != dialogSelectedDate) {
+                            setDialogState(() { // Gunakan setDialogState untuk memperbarui UI dialog
+                              dialogSelectedDate = picked;
+                            });
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      // Status Kegiatan Dropdown
+                      DropdownButtonFormField<String>(
+                        decoration: const InputDecoration(labelText: 'Status Kegiatan'),
+                        value: dialogSelectedStatus,
+                        items: _statusOptions.map((String status) {
+                          return DropdownMenuItem<String>(
+                            value: status,
+                            child: Text(status),
+                          );
+                        }).toList(),
+                        onChanged: (String? newValue) {
+                          setDialogState(() { // Gunakan setDialogState
+                            dialogSelectedStatus = newValue;
+                          });
+                        },
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Pilih Status Kegiatan';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      // Deadline Kegiatan (Tanggal dan Jam)
+                      ListTile(
+                        title: Text('Deadline: ${dialogSelectedDeadline != null ? dialogSelectedDeadline?.toLocal().toString().split('.')[0] : 'Pilih Tanggal & Jam'}'),
+                        trailing: const Icon(Icons.access_time),
+                        onTap: () async {
+                          final DateTime? pickedDate = await showDatePicker(
+                            context: context,
+                            initialDate: dialogSelectedDeadline ?? DateTime.now(),
+                            firstDate: DateTime(2000),
+                            lastDate: DateTime(2101),
+                          );
+                          if (pickedDate != null) {
+                            final TimeOfDay? pickedTime = await showTimePicker(
+                              context: context,
+                              initialTime: TimeOfDay.fromDateTime(dialogSelectedDeadline ?? DateTime.now()),
+                            );
+                            if (pickedTime != null) {
+                              setDialogState(() { // Gunakan setDialogState
+                                dialogSelectedDeadline = DateTime(
+                                  pickedDate.year,
+                                  pickedDate.month,
+                                  pickedDate.day,
+                                  pickedTime.hour,
+                                  pickedTime.minute,
+                                );
+                              });
+                            }
+                          }
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      // Jenis Kegiatan Dropdown
+                      DropdownButtonFormField<String>(
+                        decoration: const InputDecoration(labelText: 'Jenis Kegiatan'),
+                        value: dialogSelectedJenis,
+                        items: _jenisKegiatanOptions.map((String jenis) {
+                          return DropdownMenuItem<String>(
+                            value: jenis,
+                            child: Text(jenis),
+                          );
+                        }).toList(),
+                        onChanged: (String? newValue) {
+                          setDialogState(() { // Gunakan setDialogState
+                            dialogSelectedJenis = newValue;
+                          });
+                        },
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Pilih Jenis Kegiatan';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      // Placeholder untuk Lampiran
+                      Row(
+                        children: [
+                          const Expanded(
+                            child: Text('Lampiran (Foto/Video/File)'),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.attach_file),
+                            onPressed: () {
+                              // TODO: Logika untuk memilih file akan ditambahkan di sini
+                              print('Pilih Lampiran');
+                            },
+                          ),
+                        ],
                       ),
                     ],
                   ),
-                ],
+                ),
               ),
-            ),
-          ),
-          actions: <Widget>[
-            TextButton(
-              child: const Text('Batal'),
-              onPressed: () {
-                Navigator.of(dialogContext).pop();
-              },
-            ),
-            ElevatedButton(
-              child: const Text('Simpan'),
-              onPressed: () {
-                if (_formKey.currentState!.validate()) {
-                  // Jika form valid, lakukan sesuatu dengan data
-                  print('Nama Kegiatan: ${_namaKegiatanController.text}');
-                  print('Detail Kegiatan: ${_detailKegiatanController.text}');
-                  print('Tanggal Kegiatan: ${_selectedDate?.toIso8601String()}');
-                  print('Status Kegiatan: $_selectedStatus');
-                  print('Deadline: ${_selectedDeadline?.toIso8601String()}');
-                  print('Jenis Kegiatan: $_selectedJenis');
+              actions: <Widget>[
+                TextButton(
+                  child: const Text('Batal'),
+                  onPressed: () {
+                    Navigator.of(dialogContext).pop();
+                  },
+                ),
+                ElevatedButton(
+                  child: const Text('Simpan'),
+                  onPressed: () {
+                    if (_formKey.currentState!.validate()) {
+                      // Data yang akan disimpan adalah dari variabel lokal dialog
+                      print('Nama Kegiatan: ${_namaKegiatanController.text}');
+                      print('Detail Kegiatan: ${_detailKegiatanController.text}');
+                      print('Tanggal Kegiatan: ${dialogSelectedDate?.toIso8601String()}');
+                      print('Status Kegiatan: $dialogSelectedStatus');
+                      print('Deadline: ${dialogSelectedDeadline?.toIso8601String()}');
+                      print('Jenis Kegiatan: $dialogSelectedJenis');
 
-                  // TODO: Simpan data ke database lokal (Hive/Isar/Sqflite)
-                  Navigator.of(dialogContext).pop();
-                }
-              },
-            ),
-          ],
+                      // TODO: Simpan data ke database lokal (Hive/Isar/Sqflite)
+                      Navigator.of(dialogContext).pop();
+                    }
+                  },
+                ),
+              ],
+            );
+          },
         );
       },
     );
