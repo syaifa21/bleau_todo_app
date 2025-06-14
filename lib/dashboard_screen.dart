@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:bleau_todo_app/models/task.dart';
 import 'package:bleau_todo_app/screens/calendar_screen.dart'; // Import CalendarScreen
+import 'package:bleau_todo_app/screens/dashboard_chart_screen.dart'; // Import DashboardChartScreen
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -69,7 +70,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _detailKegiatanController.dispose();
     // Biasanya box ditutup di main atau saat aplikasi dihentikan sepenuhnya.
     // Jika hanya di dispose widget, box bisa terbuka lagi saat widget di-rebuild.
-    // _taskBox.close(); 
+    // _taskBox.close();
     super.dispose();
   }
 
@@ -86,7 +87,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final List<Widget> bottomNavPages = <Widget>[
       _buildTasksPage(context), // Halaman Dashboard Kegiatan (Tab "Tugas")
       const CalendarScreen(), // Halaman Kalender (Tab "Kalender")
-      const Center(child: Text('Halaman Milikku')), // Placeholder (Tab "Milikku")
+      const DashboardChartScreen(), // Halaman Dashboard Chart (Tab "Milikku")
     ];
 
     return Scaffold(
@@ -103,8 +104,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
             label: 'Kalender',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: 'Milikku',
+            icon: Icon(Icons.bar_chart), // Ganti ikon menjadi chart/statistik
+            label: 'Milikku', // Label tetap 'Milikku' sesuai keinginanmu
           ),
         ],
         currentIndex: _selectedIndex,
