@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:table_calendar/table_calendar.dart'; // Pastikan import ini benar
+import 'package:table_calendar/table_calendar.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import 'package:bleau_todo_app/models/task.dart'; // Import model Task
+import 'package:bleau_todo_app/models/task.dart';
 
 class CalendarScreen extends StatefulWidget {
   const CalendarScreen({super.key});
@@ -13,30 +13,23 @@ class CalendarScreen extends StatefulWidget {
 class _CalendarScreenState extends State<CalendarScreen> {
   CalendarFormat _calendarFormat = CalendarFormat.month;
   DateTime _focusedDay = DateTime.now();
-  DateTime? _selectedDay; // Harus nullable karena bisa tidak ada yang dipilih
+  DateTime? _selectedDay;
   late Box<Task> _taskBox;
   List<Task> _tasksOnSelectedDay = [];
 
   @override
   void initState() {
     super.initState();
-    _selectedDay = _focusedDay; // Default: Hari ini dipilih
-    
-    // Memastikan box 'tasks' sudah terbuka sebelum mengaksesnya
-    // Karena kita membuka box di main.dart, ini seharusnya aman.
-    // Jika ada kasus di mana aplikasi dibuka langsung ke CalendarScreen (jarang),
-    // maka kita perlu penanganan async di sini juga.
+    _selectedDay = _focusedDay;
     if (Hive.isBoxOpen('tasks')) {
       _taskBox = Hive.box<Task>('tasks');
-      _getTasksForSelectedDay(_selectedDay!); // Muat tugas untuk hari ini
+      _getTasksForSelectedDay(_selectedDay!);
     } else {
-      // Fallback: Jika box belum terbuka (misalnya, aplikasi dimulai langsung dari calendar screen)
-      _openHiveBoxAndLoadTasks(); // Panggil fungsi async untuk membuka box dan memuat tugas
+      _openHiveBoxAndLoadTasks();
     }
   }
 
   Future<void> _openHiveBoxAndLoadTasks() async {
-    // Pastikan Hive sudah diinisialisasi di main.dart sebelum mencoba membuka box
     await Hive.openBox<Task>('tasks');
     _taskBox = Hive.box<Task>('tasks');
     _getTasksForSelectedDay(_selectedDay!);
@@ -45,7 +38,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
   void _getTasksForSelectedDay(DateTime day) {
     setState(() {
       _tasksOnSelectedDay = _taskBox.values.where((task) {
-        // Gunakan isSameDay dari table_calendar untuk perbandingan tanggal yang akurat
         return isSameDay(task.date, day);
       }).toList();
     });
@@ -53,8 +45,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   @override
   void dispose() {
-    // Tidak perlu menutup _taskBox di dispose jika ingin tetap terbuka antar widget/sesi
-    // karena _taskBox dibuka di main.dart.
     super.dispose();
   }
 
@@ -63,7 +53,6 @@ class _CalendarScreenState extends State<CalendarScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Kalender Kegiatan'),
-        elevation: 0,
       ),
       body: Column(
         children: [
@@ -73,26 +62,22 @@ class _CalendarScreenState extends State<CalendarScreen> {
             focusedDay: _focusedDay,
             calendarFormat: _calendarFormat,
             selectedDayPredicate: (day) {
-              // `_selectedDay` bisa null, jadi gunakan isSameDay dengan operator null-aware
               return isSameDay(_selectedDay, day);
             },
             onDaySelected: (selectedDay, focusedDay) {
-              // Pastikan _selectedDay dan selectedDay tidak null saat dibandingkan
               if (_selectedDay == null || !isSameDay(_selectedDay!, selectedDay)) {
                 setState(() {
                   _selectedDay = selectedDay;
-                  _focusedDay = focusedDay; // update `_focusedDay` as well
+                  _focusedDay = focusedDay;
                 });
-                _getTasksForSelectedDay(selectedDay); // Muat ulang tugas untuk hari yang dipilih
+                _getTasksForSelectedDay(selectedDay);
               }
             },
             onPageChanged: (focusedDay) {
               _focusedDay = focusedDay;
             },
             eventLoader: (day) {
-              // Menandai hari dengan kegiatan (misalnya, dot di bawah tanggal)
-              // Pastikan _taskBox sudah terbuka sebelum eventLoader dipanggil
-              if (!_taskBox.isOpen) return []; // Hindari error jika box belum siap
+              if (!_taskBox.isOpen) return [];
               return _taskBox.values.where((task) => isSameDay(task.date, day)).toList();
             },
             calendarBuilders: CalendarBuilders(
@@ -107,58 +92,67 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 return null;
               },
             ),
-            headerStyle: const HeaderStyle( // Styling untuk header kalender
-              formatButtonVisible: false, // Sembunyikan tombol format (Week, 2 Weeks, Month)
-              titleCentered: true,
-            ),
-            calendarStyle: const CalendarStyle( // Styling untuk sel kalender
+              headerStyle: HeaderStyle(
+                formatButtonVisible: false,
+                titleCentered: true,
+                titleTextStyle: Theme.of(context).textTheme.titleLarge!.copyWith(fontWeight: FontWeight.bold),
+                leftChevronIcon: Icon(Icons.chevron_left, color: Theme.of(context).primaryColor), // <--- PERBAIKAN
+                rightChevronIcon: Icon(Icons.chevron_right, color: Theme.of(context).primaryColor), // <--- PERBAIKAN
+              ),
+            calendarStyle: CalendarStyle(
               todayDecoration: BoxDecoration(
-                color: Colors.blueAccent,
+                color: Theme.of(context).primaryColor.withOpacity(0.5),
                 shape: BoxShape.circle,
               ),
               selectedDecoration: BoxDecoration(
-                color: Colors.blue,
+                color: Theme.of(context).primaryColor,
                 shape: BoxShape.circle,
               ),
-              markerDecoration: BoxDecoration(
-                color: Colors.red, // Warna dot event
+              markerDecoration: const BoxDecoration(
+                color: Colors.redAccent, // Warna dot event yang lebih cerah
                 shape: BoxShape.circle,
               ),
+              outsideDaysVisible: false, // Sembunyikan hari dari bulan sebelumnya/berikutnya
+              defaultTextStyle: TextStyle(color: Colors.blueGrey[800]),
+              weekendTextStyle: TextStyle(color: Colors.red[600]),
+              holidayTextStyle: TextStyle(color: Colors.red[600]),
             ),
           ),
-          const SizedBox(height: 8.0),
-          // Tambahkan Judul "Kegiatan Hari Ini"
+          const SizedBox(height: 16.0),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16.0),
             child: Align(
               alignment: Alignment.centerLeft,
               child: Text(
                 'Kegiatan ${(_selectedDay != null && isSameDay(_selectedDay!, DateTime.now())) ? 'Hari Ini' : _selectedDay?.toLocal().toString().split(' ')[0] ?? ''}',
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold, color: Colors.blueGrey[800]),
               ),
             ),
           ),
           const SizedBox(height: 8.0),
           Expanded(
             child: _tasksOnSelectedDay.isEmpty
-                ? const Center(child: Text('Tidak ada kegiatan untuk hari ini.'))
+                ? Center(
+                    child: Text('Tidak ada kegiatan pada tanggal ini.', style: Theme.of(context).textTheme.bodyLarge),
+                  )
                 : ListView.builder(
                     itemCount: _tasksOnSelectedDay.length,
                     itemBuilder: (context, index) {
                       final task = _tasksOnSelectedDay[index];
                       return Card(
-                        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                        elevation: 3, // Sedikit lebih menonjol
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         child: ListTile(
-                          title: Text(task.name),
-                          subtitle: Text('${task.type} - ${task.status}'),
-                          // Kamu bisa menambahkan ikon edit/hapus di sini juga jika mau
-                          // trailing: Row(
-                          //   mainAxisSize: MainAxisSize.min,
-                          //   children: [
-                          //     IconButton(icon: const Icon(Icons.edit), onPressed: () { /* logic */ }),
-                          //     IconButton(icon: const Icon(Icons.delete), onPressed: () { /* logic */ }),
-                          //   ],
-                          // ),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          title: Text(task.name, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                          subtitle: Text('${task.type} - ${task.status}', style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey[700])),
+                          trailing: Icon(Icons.arrow_forward_ios, size: 18, color: Colors.grey[400]),
+                          onTap: () {
+                            // TODO: Navigasi ke detail tugas di DashboardScreen atau tampilkan dialog detail
+                            // Ini akan memerlukan mekanisme komunikasi antar screen atau navigator
+                            // Untuk saat ini, kita biarkan saja sebagai tampilan sederhana
+                          },
                         ),
                       );
                     },
@@ -173,16 +167,17 @@ class _CalendarScreenState extends State<CalendarScreen> {
     return Container(
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: Colors.blue[400],
+        color: Theme.of(context).colorScheme.secondary, // Warna aksen dari tema
       ),
-      width: 16.0,
-      height: 16.0,
+      width: 18.0, // Ukuran marker sedikit lebih besar
+      height: 18.0,
       child: Center(
         child: Text(
           '$count',
           style: const TextStyle(
             color: Colors.white,
             fontSize: 12.0,
+            fontWeight: FontWeight.bold,
           ),
         ),
       ),

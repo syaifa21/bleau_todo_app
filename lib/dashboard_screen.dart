@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:bleau_todo_app/models/task.dart';
 import 'package:bleau_todo_app/screens/calendar_screen.dart'; // Import CalendarScreen
-import 'package:bleau_todo_app/screens/dashboard_chart_screen.dart'; // Pastikan import ini menunjuk ke file yang benar
+import 'package:bleau_todo_app/screens/dashboard_chart_screen.dart'; // Import DashboardChartScreen
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -70,7 +70,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _detailKegiatanController.dispose();
     // Biasanya box ditutup di main atau saat aplikasi dihentikan sepenuhnya.
     // Jika hanya di dispose widget, box bisa terbuka lagi saat widget di-rebuild.
-    // _taskBox.close();
+    // _taskBox.close(); 
     super.dispose();
   }
 
@@ -87,29 +87,36 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final List<Widget> bottomNavPages = <Widget>[
       _buildTasksPage(context), // Halaman Dashboard Kegiatan (Tab "Tugas")
       const CalendarScreen(), // Halaman Kalender (Tab "Kalender")
-      const DashboardChartScreen(), // <--- Pastikan pemanggilan ini benar
+      const DashboardChartScreen(), // Halaman Dashboard Chart (Tab "Milikku")
     ];
 
     return Scaffold(
       body: bottomNavPages.elementAt(_selectedIndex),
 
       bottomNavigationBar: BottomNavigationBar(
+        backgroundColor: Colors.white, // Latar belakang putih
+        selectedItemColor: Theme.of(context).primaryColor, // Warna biru dari tema
+        unselectedItemColor: Colors.grey[600], // Warna abu-abu untuk yang tidak terpilih
+        type: BottomNavigationBarType.fixed, // Pastikan semua item terlihat
+        elevation: 10, // Sedikit bayangan
         items: const <BottomNavigationBarItem>[
           BottomNavigationBarItem(
-            icon: Icon(Icons.assignment),
+            icon: Icon(Icons.assignment_outlined),
+            activeIcon: Icon(Icons.assignment),
             label: 'Tugas',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.calendar_today),
+            icon: Icon(Icons.calendar_today_outlined),
+            activeIcon: Icon(Icons.calendar_today),
             label: 'Kalender',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.bar_chart), // Ganti ikon menjadi chart/statistik
-            label: 'Milikku', // Label tetap 'Milikku' sesuai keinginanmu
+            icon: Icon(Icons.bar_chart_outlined),
+            activeIcon: Icon(Icons.bar_chart),
+            label: 'Rekapan', // Label lebih umum untuk chart
           ),
         ],
         currentIndex: _selectedIndex,
-        selectedItemColor: Colors.blue,
         onTap: _onBottomNavItemTapped,
       ),
       floatingActionButton: _selectedIndex == 0 // Hanya tampilkan FAB di tab "Tugas"
@@ -149,16 +156,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
         return StatefulBuilder(
           builder: (BuildContext context, StateSetter setDialogState) {
             return AlertDialog(
-              title: Text(taskToEdit == null ? 'Tambah Kegiatan Baru' : 'Edit Kegiatan'),
+              backgroundColor: Colors.white,
+              surfaceTintColor: Colors.white, // Menghilangkan overlay warna default Material 3
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              title: Text(taskToEdit == null ? 'Tambah Kegiatan Baru' : 'Edit Kegiatan',
+                  style: Theme.of(context).textTheme.titleLarge), // Menggunakan gaya teks dari tema
               content: SingleChildScrollView(
                 child: Form(
                   key: _formKey,
                   child: Column(
-                    mainAxisSize: MainAxisSize.min,
+                    mainAxisSize: MainAxisSize.min, // PERBAIKAN UNTUK MainAxisSize
                     children: <Widget>[
                       TextFormField(
                         controller: _namaKegiatanController,
-                        decoration: const InputDecoration(labelText: 'Nama Kegiatan'),
+                        decoration: const InputDecoration(labelText: 'Nama Kegiatan', hintText: 'Misal: Rapat Proyek'),
                         validator: (value) {
                           if (value == null || value.isEmpty) {
                             return 'Nama Kegiatan tidak boleh kosong';
@@ -166,32 +177,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           return null;
                         },
                       ),
+                      const SizedBox(height: 12),
                       TextFormField(
                         controller: _detailKegiatanController,
-                        decoration: const InputDecoration(labelText: 'Detail Kegiatan'),
+                        decoration: const InputDecoration(labelText: 'Detail Kegiatan', hintText: 'Deskripsi singkat tugas'),
                         maxLines: 3,
                       ),
                       const SizedBox(height: 16),
-                      // Tanggal Kegiatan
-                      ListTile(
-                        title: Text('Tanggal Kegiatan: ${dialogSelectedDate?.toLocal().toString().split(' ')[0] ?? 'Pilih Tanggal'}'), // Perbaikan null-safety
-                        trailing: const Icon(Icons.calendar_today),
-                        onTap: () async {
-                          final DateTime? picked = await showDatePicker(
-                            context: context,
-                            initialDate: dialogSelectedDate ?? DateTime.now(),
-                            firstDate: DateTime(2000),
-                            lastDate: DateTime(2101),
-                          );
-                          if (picked != null && picked != dialogSelectedDate) {
-                            setDialogState(() {
-                              dialogSelectedDate = picked;
-                            });
-                          }
+                      _buildDatePickerTile(
+                        context,
+                        'Tanggal Kegiatan',
+                        dialogSelectedDate,
+                        (pickedDate) {
+                          setDialogState(() {
+                            dialogSelectedDate = pickedDate;
+                          });
                         },
                       ),
                       const SizedBox(height: 16),
-                      // Status Kegiatan Dropdown
                       DropdownButtonFormField<String>(
                         decoration: const InputDecoration(labelText: 'Status Kegiatan'),
                         value: dialogSelectedStatus,
@@ -214,38 +217,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         },
                       ),
                       const SizedBox(height: 16),
-                      // Deadline Kegiatan (Tanggal dan Jam)
-                      ListTile(
-                        title: Text('Deadline: ${dialogSelectedDeadline?.toLocal().toString().split('.')[0] ?? 'Pilih Tanggal & Jam'}'), // Perbaikan null-safety
-                        trailing: const Icon(Icons.access_time),
-                        onTap: () async {
-                          final DateTime? pickedDate = await showDatePicker(
-                            context: context,
-                            initialDate: dialogSelectedDeadline ?? DateTime.now(),
-                            firstDate: DateTime(2000),
-                            lastDate: DateTime(2101),
-                          );
-                          if (pickedDate != null) {
-                            final TimeOfDay? pickedTime = await showTimePicker(
-                              context: context,
-                              initialTime: TimeOfDay.fromDateTime(dialogSelectedDeadline ?? DateTime.now()),
-                            );
-                            if (pickedTime != null) {
-                              setDialogState(() {
-                                dialogSelectedDeadline = DateTime(
-                                  pickedDate.year,
-                                  pickedDate.month,
-                                  pickedDate.day,
-                                  pickedTime.hour,
-                                  pickedTime.minute,
-                                );
-                              });
-                            }
-                          }
+                      _buildDatePickerTile(
+                        context,
+                        'Deadline',
+                        dialogSelectedDeadline,
+                        (pickedDateTime) {
+                          setDialogState(() {
+                            dialogSelectedDeadline = pickedDateTime;
+                          });
                         },
+                        withTime: true,
                       ),
                       const SizedBox(height: 16),
-                      // Jenis Kegiatan Dropdown
                       DropdownButtonFormField<String>(
                         decoration: const InputDecoration(labelText: 'Jenis Kegiatan'),
                         value: dialogSelectedJenis,
@@ -268,11 +251,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         },
                       ),
                       const SizedBox(height: 16),
-                      // Placeholder untuk Lampiran
                       Row(
                         children: [
-                          const Expanded(
-                            child: Text('Lampiran (Foto/Video/File)'),
+                          Expanded(
+                            child: Text('Lampiran (Foto/Video/File)', style: Theme.of(context).textTheme.bodyMedium),
                           ),
                           IconButton(
                             icon: const Icon(Icons.attach_file),
@@ -297,7 +279,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   child: const Text('Simpan'),
                   onPressed: () {
                     if (_formKey.currentState!.validate()) {
-                      // Buat objek Task baru atau perbarui yang sudah ada
                       if (taskToEdit == null) {
                         final newTask = Task(
                           name: _namaKegiatanController.text,
@@ -310,18 +291,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         );
                         _taskBox.add(newTask);
                       } else {
-                        // Perbarui objek Task yang ada
                         taskToEdit.name = _namaKegiatanController.text;
                         taskToEdit.detail = _detailKegiatanController.text.isNotEmpty ? _detailKegiatanController.text : null;
                         taskToEdit.date = dialogSelectedDate ?? DateTime.now();
                         taskToEdit.status = dialogSelectedStatus ?? _statusOptions[0];
                         taskToEdit.deadline = dialogSelectedDeadline;
                         taskToEdit.type = dialogSelectedJenis ?? _jenisKegiatanOptions[0];
-                        // taskToEdit.attachmentPath = ...;
-                        taskToEdit.save(); // Simpan perubahan ke Hive (HiveObject.save())
+                        taskToEdit.save();
                       }
-
-                      _loadTasks(); // Muat ulang daftar tugas untuk memperbarui UI
+                      _loadTasks();
                       Navigator.of(dialogContext).pop();
                     }
                   },
@@ -329,6 +307,75 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ],
             );
           },
+        );
+      },
+    );
+  }
+
+  Widget _buildDatePickerTile(
+      BuildContext context, String label, DateTime? selectedDateTime, Function(DateTime?) onDateTimeSelected,
+      {bool withTime = false}) {
+    return ListTile(
+      title: Text(
+        '$label: ${selectedDateTime != null ? (withTime ? selectedDateTime.toLocal().toString().split('.')[0] : selectedDateTime.toLocal().toString().split(' ')[0]) : 'Pilih Tanggal${withTime ? ' & Jam' : ''}'}',
+        style: Theme.of(context).textTheme.bodyMedium,
+      ),
+      trailing: Icon(withTime ? Icons.access_time : Icons.calendar_today),
+      onTap: () async {
+        DateTime? pickedDate = await showDatePicker(
+          context: context,
+          initialDate: selectedDateTime ?? DateTime.now(),
+          firstDate: DateTime(2000),
+          lastDate: DateTime(2101),
+        );
+        if (pickedDate != null) {
+          if (withTime) {
+            final TimeOfDay? pickedTime = await showTimePicker(
+              context: context,
+              initialTime: TimeOfDay.fromDateTime(selectedDateTime ?? DateTime.now()),
+            );
+            if (pickedTime != null) {
+              onDateTimeSelected(DateTime(
+                pickedDate.year,
+                pickedDate.month,
+                pickedDate.day,
+                pickedTime.hour,
+                pickedTime.minute,
+              ));
+            }
+          } else {
+            onDateTimeSelected(pickedDate);
+          }
+        }
+      },
+      contentPadding: EdgeInsets.zero,
+    );
+  }
+
+  void _confirmDeleteTask(BuildContext context, dynamic taskKey, String taskName) {
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: const Text('Hapus Kegiatan'),
+          content: Text('Apakah Anda yakin ingin menghapus kegiatan "$taskName"?'),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Batal'),
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+              },
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+              child: const Text('Hapus', style: TextStyle(color: Colors.white)),
+              onPressed: () {
+                _taskBox.delete(taskKey);
+                _loadTasks();
+                Navigator.of(dialogContext).pop();
+              },
+            ),
+          ],
         );
       },
     );
@@ -344,17 +391,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
           content: SingleChildScrollView(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
+              mainAxisSize: MainAxisSize.min, // Corrected MainAxisSize.min
               children: <Widget>[
                 const Divider(),
                 _buildDetailRow(
-                    'Detail Kegiatan', task.detail ?? '-'), // Jika detail null, tampilkan '-'
+                    'Detail Kegiatan', task.detail ?? '-'),
                 _buildDetailRow('Tanggal Kegiatan', task.date.toLocal().toString().split(' ')[0]),
                 _buildDetailRow('Status Kegiatan', task.status),
                 _buildDetailRow('Jenis Kegiatan', task.type),
                 if (task.deadline != null)
                   _buildDetailRow('Deadline', task.deadline!.toLocal().toString().split('.')[0]),
-                // Placeholder untuk lampiran. Nanti bisa ditambahkan logika untuk melihat/membuka file
                 _buildDetailRow('Lampiran', task.attachmentPath ?? 'Tidak ada'),
                 const Divider(),
               ],
@@ -364,7 +410,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             TextButton(
               child: const Text('Tutup'),
               onPressed: () {
-                Navigator.of(dialogContext).pop(); // Tutup dialog
+                Navigator.of(dialogContext).pop();
               },
             ),
           ],
@@ -389,57 +435,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
             value,
             style: const TextStyle(fontSize: 16),
           ),
-          const SizedBox(height: 8), // Spasi antar baris detail
+          const SizedBox(height: 8),
         ],
       ),
     );
   }
 
-  // --- Metode untuk Konfirmasi dan Menghapus Kegiatan ---
-  void _confirmDeleteTask(BuildContext context, dynamic taskKey, String taskName) {
-    showDialog(
-      context: context,
-      builder: (BuildContext dialogContext) {
-        return AlertDialog(
-          title: const Text('Hapus Kegiatan'),
-          content: Text('Apakah Anda yakin ingin menghapus kegiatan "$taskName"?'),
-          actions: <Widget>[
-            TextButton(
-              child: const Text('Batal'),
-              onPressed: () {
-                Navigator.of(dialogContext).pop();
-              },
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-              child: const Text('Hapus', style: TextStyle(color: Colors.white)),
-              onPressed: () {
-                _taskBox.delete(taskKey); // Hapus tugas dari Hive berdasarkan key
-                _loadTasks(); // Muat ulang daftar tugas
-                Navigator.of(dialogContext).pop();
-              },
-            ),
-          ],
-        );
-      },
-    );
-  }
-
   // --- Metode untuk Membangun Halaman Tugas (Dashboard Kegiatan) ---
   Widget _buildTasksPage(BuildContext context) {
-    // Filter tugas berdasarkan _selectedFilter
     List<Task> filteredTasks = _tasks.where((task) {
       if (_selectedFilter == 'Semua') {
-        return true; // Tampilkan semua tugas
-      } else if (task.type == _selectedFilter) { // Filter berdasarkan jenis kegiatan
+        return true;
+      } else if (task.type == _selectedFilter) {
         return true;
       }
-      // Tambahkan filter status atau lainnya di sini jika diperlukan
-      // Misalnya, jika ingin filter berdasarkan status:
-      // else if (_selectedFilter == 'Belum Dimulai' && task.status == 'Belum Dimulai') {
-      //   return true;
-      // }
-      return false; // Jika tidak ada filter yang cocok
+      return false;
     }).toList();
 
     bool hasTasks = filteredTasks.isNotEmpty;
@@ -447,18 +457,30 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     return Column(
       children: [
-        // Header/Filter Section
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10.0),
+        Container(
+          padding: EdgeInsets.only(top: MediaQuery.of(context).padding.top + 16, left: 16, right: 16, bottom: 10),
+          decoration: BoxDecoration(
+            color: Theme.of(context).scaffoldBackgroundColor,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                spreadRadius: 0,
+                blurRadius: 10,
+                offset: const Offset(0, 5),
+              ),
+            ],
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Ruang untuk status bar di atas, sekarang akses context di sini
-              SizedBox(height: MediaQuery.of(context).padding.top),
-
-              // Bagian filter (Semua, Kerja, Pribadi, Wishlist)
+              Text(
+                'Halo, Pengguna!',
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 16),
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(vertical: 4.0),
                 child: Row(
                   children: <Widget>[
                     _buildFilterChip('Semua'),
@@ -470,10 +492,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     _buildFilterChip('Wishlist'),
                     const SizedBox(width: 8),
                     IconButton(
-                      icon: const Icon(Icons.more_vert),
-                      onPressed: () {
-                        // Aksi untuk tombol 3 titik (opsi filter/pengaturan tambahan)
-                      },
+                      icon: Icon(Icons.more_horiz, color: Colors.grey[700]),
+                      onPressed: () {},
                     ),
                   ],
                 ),
@@ -483,14 +503,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
         Expanded(
           child: hasTasks
-              ? _buildTaskList(filteredTasks) // <--- Lewatkan filteredTasks
+              ? _buildTaskList(filteredTasks)
               : _buildEmptyTasksState(illustrationPath),
         ),
       ],
     );
   }
 
-  // Widget untuk membangun Chip Filter
   Widget _buildFilterChip(String label) {
     return ChoiceChip(
       label: Text(label),
@@ -498,117 +517,118 @@ class _DashboardScreenState extends State<DashboardScreen> {
       onSelected: (bool selected) {
         if (selected) {
           setState(() {
-            _selectedFilter = label; // Memperbarui state saat chip dipilih
+            _selectedFilter = label;
           });
         }
       },
-      selectedColor: Colors.blue[100],
+      selectedColor: Theme.of(context).primaryColor.withOpacity(0.2),
       labelStyle: TextStyle(
-        color: _selectedFilter == label ? Colors.blue[900] : Colors.grey[700],
+        color: _selectedFilter == label ? Theme.of(context).primaryColor : Colors.grey[700],
+        fontWeight: FontWeight.w600,
       ),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(25),
         side: BorderSide(
-          color: _selectedFilter == label ? Colors.blue : Colors.grey[300]!,
+          color: _selectedFilter == label ? Theme.of(context).primaryColor : Colors.grey[300]!,
+          width: 1.2,
         ),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
+      elevation: 2,
+      shadowColor: Colors.black12,
     );
   }
 
-  // Widget untuk membangun daftar tugas (menampilkan dari Hive)
-  Widget _buildTaskList(List<Task> tasks) { // Menerima daftar tugas yang difilter
+  Widget _buildTaskList(List<Task> tasks) {
     if (tasks.isEmpty) {
       return const Center(child: Text('Tidak ada tugas untuk ditampilkan dengan filter ini.'));
     }
     return ListView.builder(
+      padding: const EdgeInsets.only(top: 16.0),
       itemCount: tasks.length,
       itemBuilder: (context, index) {
         final task = tasks[index];
-        final taskKey = task.key; // HiveObject punya properti .key
+        final taskKey = task.key;
 
         return Card(
-          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: InkWell( // <--- InkWell untuk tap detail
+          elevation: 4,
+          clipBehavior: Clip.antiAlias,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+
+          child: InkWell(
             onTap: () {
-              _showTaskDetailDialog(context, task); // Panggil dialog detail saat Card diketuk
+              _showTaskDetailDialog(context, task);
             },
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    task.name,
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            borderRadius: BorderRadius.circular(12),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch, // Memastikan children meregang sesuai tinggi Row
+              children: [
+                // Leading color indicator based on task type
+                Container(
+                  width: 8,
+                  // Tinggi disesuaikan dengan tinggi Row
+                  decoration: BoxDecoration(
+                    color: _getTaskTypeColor(task.type),
+                    borderRadius: const BorderRadius.horizontal(left: Radius.circular(12)),
                   ),
-                  if (task.detail != null && task.detail!.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 4.0),
-                      child: Text(task.detail!),
+                ),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.all(18.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          task.name,
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, color: Colors.blueGrey[800]),
+                        ),
+                        if (task.detail != null && task.detail!.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 6.0),
+                            child: Text(
+                              task.detail!,
+                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.blueGrey[600]),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        const SizedBox(height: 12),
+                        _buildTaskInfoRow(Icons.calendar_today_outlined, 'Tanggal', task.date.toLocal().toString().split(' ')[0]),
+                        if (task.deadline != null)
+                          _buildTaskInfoRow(Icons.access_time, 'Deadline', task.deadline!.toLocal().toString().split('.')[0]),
+                        _buildTaskInfoRow(Icons.category_outlined, 'Jenis', task.type),
+                        _buildTaskInfoRow(Icons.info_outline, 'Status', task.status),
+                        const SizedBox(height: 12),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            IconButton(
+                              icon: Icon(Icons.edit, color: Theme.of(context).primaryColor),
+                              onPressed: () {
+                                _showAddTaskDialog(context, taskToEdit: task);
+                              },
+                              tooltip: 'Edit Kegiatan',
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                              onPressed: () {
+                                if (taskKey != null) {
+                                  _confirmDeleteTask(context, taskKey, task.name);
+                                } else {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('Tidak dapat menghapus: Task Key tidak ditemukan.')),
+                                  );
+                                }
+                              },
+                              tooltip: 'Hapus Kegiatan',
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Icon(Icons.calendar_today, size: 16, color: Colors.grey[600]),
-                      const SizedBox(width: 4),
-                      Text('Tanggal: ${task.date.toLocal().toString().split(' ')[0]}'),
-                    ],
                   ),
-                  if (task.deadline != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 4.0),
-                      child: Row(
-                        children: [
-                          Icon(Icons.access_time, size: 16, color: Colors.grey[600]),
-                          const SizedBox(width: 4),
-                          Text('Deadline: ${task.deadline!.toLocal().toString().split('.')[0]}'),
-                        ],
-                      ),
-                    ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Icon(Icons.category, size: 16, color: Colors.grey[600]),
-                      const SizedBox(width: 4),
-                      Text('Jenis: ${task.type}'),
-                    ],
-                  ),
-                  Row(
-                    children: [
-                      Icon(Icons.info_outline, size: 16, color: Colors.grey[600]),
-                      const SizedBox(width: 4),
-                      Text('Status: ${task.status}'),
-                    ],
-                  ),
-                  const SizedBox(height: 8), // Sedikit ruang sebelum tombol aksi
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.edit, color: Colors.blue),
-                        onPressed: () {
-                          // Memanggil dialog yang sama, tapi dengan taskToEdit
-                          _showAddTaskDialog(context, taskToEdit: task);
-                        },
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.delete, color: Colors.red),
-                        onPressed: () {
-                          // Pastikan taskKey tidak null sebelum memanggil delete
-                          if (taskKey != null) {
-                            _confirmDeleteTask(context, taskKey, task.name);
-                          } else {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Tidak dapat menghapus: Task Key tidak ditemukan.')),
-                            );
-                          }
-                        },
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         );
@@ -616,41 +636,86 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // Widget untuk membangun tampilan kosong (ilustrasi dan pesan)
+  // Metode pembantu untuk mendapatkan warna berdasarkan jenis tugas
+  Color _getTaskTypeColor(String type) {
+    switch (type) {
+      case 'Pribadi':
+        return Colors.blueAccent;
+      case 'Kerja':
+        return Colors.green;
+      case 'Wishlist':
+        return Colors.purpleAccent;
+      case 'Lainnya':
+        return Colors.orangeAccent;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  Widget _buildTaskInfoRow(IconData icon, String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2.0),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: Colors.grey[600]),
+          const SizedBox(width: 6),
+          Text(
+            '$label: ',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold, color: Colors.blueGrey[700]),
+          ),
+          Text(
+            value,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.blueGrey[600]),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildEmptyTasksState(String illustrationPath) {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Image.asset(
-          illustrationPath,
-          height: 200,
-          errorBuilder: (context, error, stackTrace) {
-            return const Icon(
-              Icons.assignment_turned_in,
-              size: 150,
-              color: Colors.grey,
-            ); // Fallback icon jika gambar tidak ditemukan
-          },
-        ),
-        const SizedBox(height: 30),
-        Container(
-          margin: const EdgeInsets.symmetric(horizontal: 40),
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: Colors.amber[200],
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: const Text(
-            'Klik di sini untuk membuat tugas pertamamu.',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w500,
-              color: Colors.brown,
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Image.asset(
+              illustrationPath,
+              height: 200,
+              errorBuilder: (context, error, stackTrace) {
+                return Icon(
+                  Icons.assignment_turned_in,
+                  size: 150,
+                  color: Colors.grey[300],
+                );
+              },
             ),
-          ),
+            const SizedBox(height: 30),
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.amber[50],
+                borderRadius: BorderRadius.circular(15),
+                border: Border.all(color: Colors.amber[200]!),
+              ),
+              child: Text(
+                'Klik tombol "+" di pojok kanan bawah untuk membuat tugas pertamamu.',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                      color: Colors.brown[700],
+                      fontWeight: FontWeight.w500,
+                      height: 1.5,
+                    ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              'Ayo mulai kelola kegiatanmu!',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.blueGrey[700]),
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 }

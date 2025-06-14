@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:fl_chart/fl_chart.dart'; // Import fl_chart
-import 'package:hive_flutter/hive_flutter.dart'; // Import Hive
-import 'package:bleau_todo_app/models/task.dart'; // Import model Task
+import 'package:fl_chart/fl_chart.dart';
+import 'package:hive_flutter/hive_flutter.dart';
+import 'package:bleau_todo_app/models/task.dart';
 
-// Pastikan NAMA KELAS INI ADALAH DashboardChartScreen
 class DashboardChartScreen extends StatefulWidget {
   const DashboardChartScreen({super.key});
 
@@ -11,11 +10,23 @@ class DashboardChartScreen extends StatefulWidget {
   State<DashboardChartScreen> createState() => _DashboardChartScreenState();
 }
 
-// Pastikan NAMA KELAS INI ADALAH _DashboardChartScreenState
 class _DashboardChartScreenState extends State<DashboardChartScreen> {
   late Box<Task> _taskBox;
   Map<String, int> _taskTypeCounts = {};
   Map<String, int> _taskStatusCounts = {};
+
+  // Warna-warna yang konsisten untuk chart
+  final Map<String, Color> _typeColors = {
+    'Pribadi': Colors.blueAccent,
+    'Kerja': Colors.green,
+    'Wishlist': Colors.purpleAccent,
+    'Lainnya': Colors.orangeAccent,
+  };
+  final Map<String, Color> _statusColors = {
+    'Belum Dimulai': Colors.redAccent,
+    'Dalam Proses': Colors.amber,
+    'Selesai': Colors.lightGreen,
+  };
 
   @override
   void initState() {
@@ -26,6 +37,9 @@ class _DashboardChartScreenState extends State<DashboardChartScreen> {
     } else {
       _openHiveBoxAndCalculateData();
     }
+
+    // Mendengarkan perubahan di Hive Box untuk memperbarui chart secara real-time
+    _taskBox.listenable().addListener(_calculateTaskData);
   }
 
   Future<void> _openHiveBoxAndCalculateData() async {
@@ -47,17 +61,38 @@ class _DashboardChartScreenState extends State<DashboardChartScreen> {
   }
 
   @override
+  void dispose() {
+    // Hapus listener saat widget di-dispose untuk mencegah memory leaks
+    _taskBox.listenable().removeListener(_calculateTaskData);
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Rekapan Kegiatan'),
-        elevation: 0,
       ),
-      body: _taskBox.isEmpty
-          ? const Center(
-              child: Text(
-                'Tidak ada kegiatan untuk direkap.\nTambahkan kegiatan terlebih dahulu!',
-                textAlign: TextAlign.center,
+      body: _taskBox.isEmpty || (_taskTypeCounts.isEmpty && _taskStatusCounts.isEmpty)
+          ? Center(
+              child: Padding(
+                padding: const EdgeInsets.all(32.0),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.bar_chart,
+                      size: 100,
+                      color: Colors.grey[300],
+                    ),
+                    const SizedBox(height: 20),
+                    Text(
+                      'Tidak ada kegiatan untuk direkap.\nTambahkan kegiatan dari tab Tugas!',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.grey[600]),
+                    ),
+                  ],
+                ),
               ),
             )
           : SingleChildScrollView(
@@ -66,25 +101,17 @@ class _DashboardChartScreenState extends State<DashboardChartScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _buildChartSection(
-                    title: 'Rekapan Berdasarkan Jenis',
+                    title: 'Berdasarkan Jenis Kegiatan',
                     dataCounts: _taskTypeCounts,
-                    colors: {
-                      'Pribadi': Colors.blue,
-                      'Kerja': Colors.green,
-                      'Wishlist': Colors.purple,
-                      'Lainnya': Colors.orange,
-                    },
+                    colors: _typeColors,
                   ),
-                  const SizedBox(height: 32),
+                  const SizedBox(height: 40), // Lebih banyak spasi antar chart
                   _buildChartSection(
-                    title: 'Rekapan Berdasarkan Status',
+                    title: 'Berdasarkan Status Kegiatan',
                     dataCounts: _taskStatusCounts,
-                    colors: {
-                      'Belum Dimulai': Colors.red,
-                      'Dalam Proses': Colors.yellow,
-                      'Selesai': Colors.green,
-                    },
+                    colors: _statusColors,
                   ),
+                  const SizedBox(height: 20),
                 ],
               ),
             ),
@@ -101,11 +128,12 @@ class _DashboardChartScreenState extends State<DashboardChartScreen> {
     }
 
     List<PieChartSectionData> sections = dataCounts.entries.map((entry) {
+      final percentage = (entry.value / _taskBox.length) * 100;
       final isTouched = false;
-      final fontSize = isTouched ? 20.0 : 12.0;
-      final radius = isTouched ? 60.0 : 50.0;
+      final fontSize = isTouched ? 20.0 : 14.0;
+      final radius = isTouched ? 65.0 : 60.0; // Ukuran radius chart
       final widgetStyle = TextStyle(
-        color: const Color(0xffffffff),
+        color: Colors.white,
         fontSize: fontSize,
         fontWeight: FontWeight.bold,
       );
@@ -113,7 +141,7 @@ class _DashboardChartScreenState extends State<DashboardChartScreen> {
       return PieChartSectionData(
         color: colors[entry.key] ?? Colors.grey,
         value: entry.value.toDouble(),
-        title: '${entry.value}',
+        title: '${percentage.toStringAsFixed(1)}%', // Tampilkan persentase
         radius: radius,
         titleStyle: widgetStyle,
         badgeWidget: _buildBadge(entry.key, colors[entry.key] ?? Colors.grey),
@@ -121,28 +149,35 @@ class _DashboardChartScreenState extends State<DashboardChartScreen> {
       );
     }).toList();
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 16),
-        SizedBox(
-          height: 200,
-          child: PieChart(
-            PieChartData(
-              pieTouchData: PieTouchData(enabled: false),
-              sections: sections,
-              centerSpaceRadius: 40,
-              sectionsSpace: 2,
+    return Card( // Bungkus chart dalam Card
+      elevation: 4,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold, color: Colors.blueGrey[800]),
             ),
-          ),
+            const SizedBox(height: 24),
+            SizedBox(
+              height: 220, // Ukuran chart lebih besar
+              child: PieChart(
+                PieChartData(
+                  pieTouchData: PieTouchData(enabled: false),
+                  sections: sections,
+                  centerSpaceRadius: 50, // Lubang tengah lebih besar
+                  sectionsSpace: 3, // Jarak antar segmen lebih lebar
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+            _buildIndicators(dataCounts, colors),
+          ],
         ),
-        const SizedBox(height: 16),
-        _buildIndicators(dataCounts, colors),
-      ],
+      ),
     );
   }
 
@@ -150,20 +185,26 @@ class _DashboardChartScreenState extends State<DashboardChartScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: dataCounts.entries.map((entry) {
+        final percentage = (_taskBox.length > 0 ? (entry.value / _taskBox.length) * 100 : 0.0);
         return Padding(
-          padding: const EdgeInsets.symmetric(vertical: 4.0),
+          padding: const EdgeInsets.symmetric(vertical: 6.0),
           child: Row(
             children: [
               Container(
-                width: 16,
-                height: 16,
+                width: 20,
+                height: 20,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: colors[entry.key] ?? Colors.grey,
                 ),
               ),
-              const SizedBox(width: 8),
-              Text('${entry.key}: ${entry.value}'),
+              const SizedBox(width: 12),
+              Expanded( // Agar teks tidak overflow
+                child: Text(
+                  '${entry.key}: ${entry.value} (${percentage.toStringAsFixed(1)}%)',
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Colors.blueGrey[700]),
+                ),
+              ),
             ],
           ),
         );
@@ -173,10 +214,17 @@ class _DashboardChartScreenState extends State<DashboardChartScreen> {
 
   Widget _buildBadge(String text, Color color) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(8),
+        color: color.withOpacity(0.9),
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: color.withOpacity(0.3),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Text(
         text,
