@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:bleau_todo_app/models/task.dart';
 import 'package:bleau_todo_app/screens/calendar_screen.dart'; // Import CalendarScreen
-import 'package:bleau_todo_app/screens/dashboard_chart_screen.dart'; // Import DashboardChartScreen
+import 'package:bleau_todo_app/screens/dashboard_chart_screen.dart'; // Pastikan import ini menunjuk ke file yang benar
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -87,7 +87,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final List<Widget> bottomNavPages = <Widget>[
       _buildTasksPage(context), // Halaman Dashboard Kegiatan (Tab "Tugas")
       const CalendarScreen(), // Halaman Kalender (Tab "Kalender")
-      const DashboardChartScreen(), // Halaman Dashboard Chart (Tab "Milikku")
+      const DashboardChartScreen(), // <--- Pastikan pemanggilan ini benar
     ];
 
     return Scaffold(

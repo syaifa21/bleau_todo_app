@@ -3,26 +3,27 @@ import 'package:fl_chart/fl_chart.dart'; // Import fl_chart
 import 'package:hive_flutter/hive_flutter.dart'; // Import Hive
 import 'package:bleau_todo_app/models/task.dart'; // Import model Task
 
-class DashboardChartScreen extends StatefulWidget { // <--- Pastikan namanya SAMA PERSIS
+// Pastikan NAMA KELAS INI ADALAH DashboardChartScreen
+class DashboardChartScreen extends StatefulWidget {
   const DashboardChartScreen({super.key});
 
   @override
   State<DashboardChartScreen> createState() => _DashboardChartScreenState();
 }
 
+// Pastikan NAMA KELAS INI ADALAH _DashboardChartScreenState
 class _DashboardChartScreenState extends State<DashboardChartScreen> {
   late Box<Task> _taskBox;
-  Map<String, int> _taskTypeCounts = {}; // Untuk menghitung jumlah tugas berdasarkan jenis
-  Map<String, int> _taskStatusCounts = {}; // Untuk menghitung jumlah tugas berdasarkan status
+  Map<String, int> _taskTypeCounts = {};
+  Map<String, int> _taskStatusCounts = {};
 
   @override
   void initState() {
     super.initState();
     if (Hive.isBoxOpen('tasks')) {
       _taskBox = Hive.box<Task>('tasks');
-      _calculateTaskData(); // Hitung data saat initState
+      _calculateTaskData();
     } else {
-      // Fallback jika box belum terbuka (jarang terjadi)
       _openHiveBoxAndCalculateData();
     }
   }
@@ -38,13 +39,11 @@ class _DashboardChartScreenState extends State<DashboardChartScreen> {
     _taskStatusCounts = {};
 
     for (var task in _taskBox.values) {
-      // Hitung berdasarkan Jenis Kegiatan
       _taskTypeCounts[task.type] = (_taskTypeCounts[task.type] ?? 0) + 1;
-      // Hitung berdasarkan Status Kegiatan
       _taskStatusCounts[task.status] = (_taskStatusCounts[task.status] ?? 0) + 1;
     }
 
-    setState(() {}); // Perbarui UI setelah data dihitung
+    setState(() {});
   }
 
   @override
@@ -98,11 +97,11 @@ class _DashboardChartScreenState extends State<DashboardChartScreen> {
     required Map<String, Color> colors,
   }) {
     if (dataCounts.isEmpty) {
-      return const SizedBox.shrink(); // Jangan tampilkan jika tidak ada data
+      return const SizedBox.shrink();
     }
 
     List<PieChartSectionData> sections = dataCounts.entries.map((entry) {
-      final isTouched = false; // Bisa ditambahkan interaksi sentuhan
+      final isTouched = false;
       final fontSize = isTouched ? 20.0 : 12.0;
       final radius = isTouched ? 60.0 : 50.0;
       final widgetStyle = TextStyle(
@@ -112,12 +111,12 @@ class _DashboardChartScreenState extends State<DashboardChartScreen> {
       );
 
       return PieChartSectionData(
-        color: colors[entry.key] ?? Colors.grey, // Warna default jika tidak ada
+        color: colors[entry.key] ?? Colors.grey,
         value: entry.value.toDouble(),
-        title: '${entry.value}', // Tampilkan jumlah
+        title: '${entry.value}',
         radius: radius,
         titleStyle: widgetStyle,
-        badgeWidget: _buildBadge(entry.key, colors[entry.key] ?? Colors.grey), // Tampilkan nama kategori
+        badgeWidget: _buildBadge(entry.key, colors[entry.key] ?? Colors.grey),
         badgePositionPercentageOffset: .98,
       );
     }).toList();
@@ -131,18 +130,18 @@ class _DashboardChartScreenState extends State<DashboardChartScreen> {
         ),
         const SizedBox(height: 16),
         SizedBox(
-          height: 200, // Ukuran chart
+          height: 200,
           child: PieChart(
             PieChartData(
-              pieTouchData: PieTouchData(enabled: false), // Nonaktifkan interaksi sentuhan untuk kesederhanaan
+              pieTouchData: PieTouchData(enabled: false),
               sections: sections,
-              centerSpaceRadius: 40, // Ukuran lubang di tengah
-              sectionsSpace: 2, // Jarak antar segmen
+              centerSpaceRadius: 40,
+              sectionsSpace: 2,
             ),
           ),
         ),
         const SizedBox(height: 16),
-        _buildIndicators(dataCounts, colors), // Legend/indikator chart
+        _buildIndicators(dataCounts, colors),
       ],
     );
   }
