@@ -1,8 +1,14 @@
 import 'package:flutter/material.dart';
-// Pastikan import ini sesuai dengan nama paket di pubspec.yaml
-import 'package:bleau_todo_app/dashboard_screen.dart'; // Nama paketmu: bleau_todo_app
+import 'package:hive_flutter/hive_flutter.dart'; // Import Hive Flutter
+import 'package:bleau_todo_app/dashboard_screen.dart';
+import 'package:bleau_todo_app/models/task.dart'; // Import model Task
 
-void main() {
+void main() async { // Ubah main menjadi async
+  WidgetsFlutterBinding.ensureInitialized(); // Pastikan Flutter diinisialisasi
+
+  await Hive.initFlutter(); // Inisialisasi Hive
+  Hive.registerAdapter(TaskAdapter()); // Daftarkan TaskAdapter
+
   runApp(const MyApp());
 }
 

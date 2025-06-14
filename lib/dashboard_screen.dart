@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:hive_flutter/hive_flutter.dart';
+import 'package:bleau_todo_app/models/task.dart';
+import 'package:bleau_todo_app/screens/calendar_screen.dart'; // Import CalendarScreen
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -11,40 +14,62 @@ class _DashboardScreenState extends State<DashboardScreen> {
   int _selectedIndex = 0; // Untuk mengelola indeks navigasi bawah
   String _selectedFilter = 'Semua'; // Untuk mengelola filter kegiatan yang dipilih
 
+  late Box<Task> _taskBox; // Deklarasi Box Hive untuk Task
+  List<Task> _tasks = []; // List untuk menyimpan data tugas yang dimuat
+
   // Controller untuk inputan dialog
   final TextEditingController _namaKegiatanController = TextEditingController();
   final TextEditingController _detailKegiatanController = TextEditingController();
 
-  // Variabel untuk Datepicker & Dropdown di dialog
-  DateTime? _selectedDate;
-  DateTime? _selectedDeadline;
-  String? _selectedStatus;
-  String? _selectedJenis;
+  // Variabel untuk Datepicker & Dropdown di dialog (digunakan sebagai nilai awal)
+  DateTime? _initialSelectedDate;
+  DateTime? _initialSelectedDeadline;
+  String? _initialSelectedStatus;
+  String? _initialSelectedJenis;
 
   // Daftar opsi untuk Status Kegiatan
   final List<String> _statusOptions = ['Belum Dimulai', 'Dalam Proses', 'Selesai'];
 
-  // Daftar opsi untuk Jenis Kegiatan (bisa diperluas nanti)
+  // Daftar opsi untuk Jenis Kegiatan (sesuai diagram alur: Pribadi, Kerja, Wishlist, Lainnya)
   final List<String> _jenisKegiatanOptions = ['Pribadi', 'Kerja', 'Wishlist', 'Lainnya'];
 
   // GlobalKey untuk form validasi
   final _formKey = GlobalKey<FormState>();
 
-  // Daftar halaman untuk Bottom Navigation Bar
-  // KITA AKAN HAPUS INISIALISASI DI SINI DAN PINDAHKAN KE BUILD METHOD
-  // late final List<Widget> _bottomNavPages; // <--- HAPUS BARIS INI
-
   @override
   void initState() {
     super.initState();
-    // Kita tidak akan menginisialisasi _bottomNavPages di sini lagi
-    // Karena _buildTasksPage bergantung pada context yang belum sepenuhnya siap.
+    _openHiveBox(); // Panggil metode untuk membuka box Hive
+  }
+
+  Future<void> _openHiveBox() async {
+    // Memastikan Hive sudah diinisialisasi di main.dart sebelum membuka box
+    if (!Hive.isBoxOpen('tasks')) {
+      _taskBox = await Hive.openBox<Task>('tasks'); // Buka box bernama 'tasks'
+    } else {
+      _taskBox = Hive.box<Task>('tasks');
+    }
+    _loadTasks(); // Muat tugas setelah box terbuka
+  }
+
+  void _loadTasks() {
+    setState(() {
+      // Pastikan _taskBox sudah diinisialisasi dan terbuka sebelum mengaksesnya
+      if (_taskBox.isOpen) {
+         _tasks = _taskBox.values.toList();
+      } else {
+         _tasks = []; // Jika box belum terbuka, set ke kosong
+      }
+    });
   }
 
   @override
   void dispose() {
     _namaKegiatanController.dispose();
     _detailKegiatanController.dispose();
+    // Biasanya box ditutup di main atau saat aplikasi dihentikan sepenuhnya.
+    // Jika hanya di dispose widget, box bisa terbuka lagi saat widget di-rebuild.
+    // _taskBox.close(); 
     super.dispose();
   }
 
@@ -56,16 +81,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Inisialisasi _bottomNavPages DI SINI (di dalam build method)
-    // agar _buildTasksPage bisa mengakses context dengan aman.
+    // Inisialisasi bottomNavPages DI SINI, di dalam build()
+    // Agar context sudah sepenuhnya tersedia saat _buildTasksPage dipanggil
     final List<Widget> bottomNavPages = <Widget>[
-      _buildTasksPage(context), // <--- Lewatkan context ke _buildTasksPage
-      const Center(child: Text('Halaman Kalender')),
-      const Center(child: Text('Halaman Milikku')),
+      _buildTasksPage(context), // Halaman Dashboard Kegiatan (Tab "Tugas")
+      const CalendarScreen(), // Halaman Kalender (Tab "Kalender")
+      const Center(child: Text('Halaman Milikku')), // Placeholder (Tab "Milikku")
     ];
 
     return Scaffold(
-      body: bottomNavPages.elementAt(_selectedIndex), // Gunakan variabel lokal
+      body: bottomNavPages.elementAt(_selectedIndex),
 
       bottomNavigationBar: BottomNavigationBar(
         items: const <BottomNavigationBarItem>[
@@ -86,38 +111,46 @@ class _DashboardScreenState extends State<DashboardScreen> {
         selectedItemColor: Colors.blue,
         onTap: _onBottomNavItemTapped,
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          _showAddTaskDialog(context); // Memanggil metode untuk menampilkan dialog
-        },
-        child: const Icon(Icons.add),
-        backgroundColor: Colors.blue,
-      ),
+      floatingActionButton: _selectedIndex == 0 // Hanya tampilkan FAB di tab "Tugas"
+          ? FloatingActionButton(
+              onPressed: () {
+                // Reset nilai awal untuk form "Tambah Kegiatan"
+                _initialSelectedDate = DateTime.now();
+                _initialSelectedDeadline = null;
+                _initialSelectedStatus = null;
+                _initialSelectedJenis = null;
+                _showAddTaskDialog(context); // Memanggil metode untuk menampilkan dialog
+              },
+              child: const Icon(Icons.add),
+              backgroundColor: Colors.blue,
+            )
+          : null, // Sembunyikan FAB di tab lain
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );
   }
 
-  // --- Metode untuk Menampilkan Dialog Tambah Kegiatan ---
-  void _showAddTaskDialog(BuildContext context) {
-    // Reset nilai form sebelum membuka dialog
-    _namaKegiatanController.clear();
-    _detailKegiatanController.clear();
-    // Menggunakan variabel lokal di dalam builder untuk state dialog
-    DateTime? dialogSelectedDate = DateTime.now(); // Default tanggal hari ini
-    DateTime? dialogSelectedDeadline = null;
-    String? dialogSelectedStatus = null;
-    String? dialogSelectedJenis = null;
+  // --- Metode untuk Menampilkan Dialog Tambah/Edit Kegiatan ---
+  void _showAddTaskDialog(BuildContext context, {Task? taskToEdit}) {
+    // Isi controller dan variabel dengan data tugas yang akan diedit
+    // Jika taskToEdit null, ini adalah mode tambah, jadi gunakan nilai awal.
+    _namaKegiatanController.text = taskToEdit?.name ?? '';
+    _detailKegiatanController.text = taskToEdit?.detail ?? '';
+
+    // Gunakan variabel lokal di dalam builder untuk state dialog
+    DateTime? dialogSelectedDate = taskToEdit?.date ?? _initialSelectedDate;
+    DateTime? dialogSelectedDeadline = taskToEdit?.deadline ?? _initialSelectedDeadline;
+    String? dialogSelectedStatus = taskToEdit?.status ?? _initialSelectedStatus;
+    String? dialogSelectedJenis = taskToEdit?.type ?? _initialSelectedJenis;
 
     showDialog(
       context: context,
       builder: (BuildContext dialogContext) {
-        // Menggunakan StatefulBuilder untuk memungkinkan setState di dalam dialog
         return StatefulBuilder(
           builder: (BuildContext context, StateSetter setDialogState) {
             return AlertDialog(
-              title: const Text('Tambah Kegiatan Baru'),
+              title: Text(taskToEdit == null ? 'Tambah Kegiatan Baru' : 'Edit Kegiatan'),
               content: SingleChildScrollView(
-                child: Form( // Gunakan Form untuk validasi
+                child: Form(
                   key: _formKey,
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -140,7 +173,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       const SizedBox(height: 16),
                       // Tanggal Kegiatan
                       ListTile(
-                        title: Text('Tanggal Kegiatan: ${dialogSelectedDate != null ? dialogSelectedDate!.toLocal().toString().split(' ')[0] : 'Pilih Tanggal'}'),
+                        title: Text('Tanggal Kegiatan: ${dialogSelectedDate?.toLocal().toString().split(' ')[0] ?? 'Pilih Tanggal'}'),
                         trailing: const Icon(Icons.calendar_today),
                         onTap: () async {
                           final DateTime? picked = await showDatePicker(
@@ -150,7 +183,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             lastDate: DateTime(2101),
                           );
                           if (picked != null && picked != dialogSelectedDate) {
-                            setDialogState(() { // Gunakan setDialogState untuk memperbarui UI dialog
+                            setDialogState(() {
                               dialogSelectedDate = picked;
                             });
                           }
@@ -168,7 +201,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           );
                         }).toList(),
                         onChanged: (String? newValue) {
-                          setDialogState(() { // Gunakan setDialogState
+                          setDialogState(() {
                             dialogSelectedStatus = newValue;
                           });
                         },
@@ -182,7 +215,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       const SizedBox(height: 16),
                       // Deadline Kegiatan (Tanggal dan Jam)
                       ListTile(
-                        title: Text('Deadline: ${dialogSelectedDeadline != null ? dialogSelectedDeadline!.toLocal().toString().split('.')[0] : 'Pilih Tanggal & Jam'}'),
+                        title: Text('Deadline: ${dialogSelectedDeadline?.toLocal().toString().split('.')[0] ?? 'Pilih Tanggal & Jam'}'),
                         trailing: const Icon(Icons.access_time),
                         onTap: () async {
                           final DateTime? pickedDate = await showDatePicker(
@@ -197,7 +230,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                               initialTime: TimeOfDay.fromDateTime(dialogSelectedDeadline ?? DateTime.now()),
                             );
                             if (pickedTime != null) {
-                              setDialogState(() { // Gunakan setDialogState
+                              setDialogState(() {
                                 dialogSelectedDeadline = DateTime(
                                   pickedDate.year,
                                   pickedDate.month,
@@ -222,7 +255,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           );
                         }).toList(),
                         onChanged: (String? newValue) {
-                          setDialogState(() { // Gunakan setDialogState
+                          setDialogState(() {
                             dialogSelectedJenis = newValue;
                           });
                         },
@@ -243,7 +276,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           IconButton(
                             icon: const Icon(Icons.attach_file),
                             onPressed: () {
-                              // TODO: Logika untuk memilih file akan ditambahkan di sini
                               print('Pilih Lampiran');
                             },
                           ),
@@ -264,15 +296,31 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   child: const Text('Simpan'),
                   onPressed: () {
                     if (_formKey.currentState!.validate()) {
-                      // Data yang akan disimpan adalah dari variabel lokal dialog
-                      print('Nama Kegiatan: ${_namaKegiatanController.text}');
-                      print('Detail Kegiatan: ${_detailKegiatanController.text}');
-                      print('Tanggal Kegiatan: ${dialogSelectedDate?.toIso8601String()}');
-                      print('Status Kegiatan: $dialogSelectedStatus');
-                      print('Deadline: ${dialogSelectedDeadline?.toIso8601String()}');
-                      print('Jenis Kegiatan: $dialogSelectedJenis');
+                      // Buat objek Task baru atau perbarui yang sudah ada
+                      if (taskToEdit == null) {
+                        final newTask = Task(
+                          name: _namaKegiatanController.text,
+                          detail: _detailKegiatanController.text.isNotEmpty ? _detailKegiatanController.text : null,
+                          date: dialogSelectedDate ?? DateTime.now(),
+                          status: dialogSelectedStatus ?? _statusOptions[0],
+                          deadline: dialogSelectedDeadline,
+                          type: dialogSelectedJenis ?? _jenisKegiatanOptions[0],
+                          attachmentPath: null,
+                        );
+                        _taskBox.add(newTask);
+                      } else {
+                        // Perbarui objek Task yang ada
+                        taskToEdit.name = _namaKegiatanController.text;
+                        taskToEdit.detail = _detailKegiatanController.text.isNotEmpty ? _detailKegiatanController.text : null;
+                        taskToEdit.date = dialogSelectedDate ?? DateTime.now();
+                        taskToEdit.status = dialogSelectedStatus ?? _statusOptions[0];
+                        taskToEdit.deadline = dialogSelectedDeadline;
+                        taskToEdit.type = dialogSelectedJenis ?? _jenisKegiatanOptions[0];
+                        // taskToEdit.attachmentPath = ...;
+                        taskToEdit.save(); // Simpan perubahan ke Hive (HiveObject.save())
+                      }
 
-                      // TODO: Simpan data ke database lokal (Hive/Isar/Sqflite)
+                      _loadTasks(); // Muat ulang daftar tugas untuk memperbarui UI
                       Navigator.of(dialogContext).pop();
                     }
                   },
@@ -285,10 +333,54 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+  // --- Metode untuk Konfirmasi dan Menghapus Kegiatan ---
+  void _confirmDeleteTask(BuildContext context, dynamic taskKey, String taskName) {
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return AlertDialog(
+          title: const Text('Hapus Kegiatan'),
+          content: Text('Apakah Anda yakin ingin menghapus kegiatan "$taskName"?'),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Batal'),
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+              },
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+              child: const Text('Hapus', style: TextStyle(color: Colors.white)),
+              onPressed: () {
+                _taskBox.delete(taskKey); // Hapus tugas dari Hive berdasarkan key
+                _loadTasks(); // Muat ulang daftar tugas
+                Navigator.of(dialogContext).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   // --- Metode untuk Membangun Halaman Tugas (Dashboard Kegiatan) ---
-  // Sekarang menerima BuildContext sebagai parameter
-  Widget _buildTasksPage(BuildContext context) { // <--- TAMBAHKAN BuildContext context
-    bool hasTasks = false; // Akan diganti dengan logika pengecekan data tugas
+  Widget _buildTasksPage(BuildContext context) {
+    // Filter tugas berdasarkan _selectedFilter
+    List<Task> filteredTasks = _tasks.where((task) {
+      if (_selectedFilter == 'Semua') {
+        return true; // Tampilkan semua tugas
+      } else if (task.type == _selectedFilter) { // Filter berdasarkan jenis kegiatan
+        return true;
+      }
+      // Tambahkan filter status atau lainnya di sini jika diperlukan
+      // Misalnya, jika ingin filter berdasarkan status:
+      // else if (_selectedFilter == 'Belum Dimulai' && task.status == 'Belum Dimulai') {
+      //   return true;
+      // }
+      return false; // Jika tidak ada filter yang cocok
+    }).toList();
+
+    bool hasTasks = filteredTasks.isNotEmpty;
     const String illustrationPath = 'assets/images/no_tasks_illustration.png';
 
     return Column(
@@ -300,7 +392,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Ruang untuk status bar di atas, sekarang akses context di sini
-              SizedBox(height: MediaQuery.of(context).padding.top), // <--- AMAN DI SINI SEKARANG
+              SizedBox(height: MediaQuery.of(context).padding.top),
 
               // Bagian filter (Semua, Kerja, Pribadi, Wishlist)
               SingleChildScrollView(
@@ -329,8 +421,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
         Expanded(
           child: hasTasks
-              ? _buildTaskList() // Akan menampilkan daftar tugas jika ada
-              : _buildEmptyTasksState(illustrationPath), // Menampilkan ilustrasi dan pesan kosong
+              ? _buildTaskList(filteredTasks) // <--- Lewatkan filteredTasks
+              : _buildEmptyTasksState(illustrationPath),
         ),
       ],
     );
@@ -353,19 +445,107 @@ class _DashboardScreenState extends State<DashboardScreen> {
         color: _selectedFilter == label ? Colors.blue[900] : Colors.grey[700],
       ),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20), // Membuat sudut lebih membulat
+        borderRadius: BorderRadius.circular(20),
         side: BorderSide(
-          color: _selectedFilter == label ? Colors.blue : Colors.grey[300]!, // Border saat dipilih
+          color: _selectedFilter == label ? Colors.blue : Colors.grey[300]!,
         ),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
     );
   }
 
-  // Widget untuk membangun daftar tugas (placeholder)
-  Widget _buildTaskList() {
-    return const Center(
-      child: Text('Daftar Tugas Akan Tampil Di Sini'),
+  // Widget untuk membangun daftar tugas (menampilkan dari Hive)
+  Widget _buildTaskList(List<Task> tasks) { // Menerima daftar tugas yang difilter
+    if (tasks.isEmpty) {
+      return const Center(child: Text('Tidak ada tugas untuk ditampilkan dengan filter ini.'));
+    }
+    return ListView.builder(
+      itemCount: tasks.length,
+      itemBuilder: (context, index) {
+        final task = tasks[index];
+        final taskKey = task.key; // HiveObject punya properti .key
+
+        return Card(
+          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  task.name,
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                if (task.detail != null && task.detail!.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4.0),
+                    child: Text(task.detail!),
+                  ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Icon(Icons.calendar_today, size: 16, color: Colors.grey[600]),
+                    const SizedBox(width: 4),
+                    Text('Tanggal: ${task.date.toLocal().toString().split(' ')[0]}'),
+                  ],
+                ),
+                if (task.deadline != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4.0),
+                    child: Row(
+                      children: [
+                        Icon(Icons.access_time, size: 16, color: Colors.grey[600]),
+                        const SizedBox(width: 4),
+                        Text('Deadline: ${task.deadline!.toLocal().toString().split('.')[0]}'),
+                      ],
+                    ),
+                  ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Icon(Icons.category, size: 16, color: Colors.grey[600]),
+                    const SizedBox(width: 4),
+                    Text('Jenis: ${task.type}'),
+                  ],
+                ),
+                Row(
+                  children: [
+                    Icon(Icons.info_outline, size: 16, color: Colors.grey[600]),
+                    const SizedBox(width: 4),
+                    Text('Status: ${task.status}'),
+                  ],
+                ),
+                const SizedBox(height: 8), // Sedikit ruang sebelum tombol aksi
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.edit, color: Colors.blue),
+                      onPressed: () {
+                        // Memanggil dialog yang sama, tapi dengan taskToEdit
+                        _showAddTaskDialog(context, taskToEdit: task);
+                      },
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.delete, color: Colors.red),
+                      onPressed: () {
+                        // Pastikan taskKey tidak null sebelum memanggil delete
+                        if (taskKey != null) {
+                          _confirmDeleteTask(context, taskKey, task.name);
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Tidak dapat menghapus: Task Key tidak ditemukan.')),
+                          );
+                        }
+                      },
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
