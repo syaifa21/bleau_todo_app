@@ -11,17 +11,34 @@ class _DashboardScreenState extends State<DashboardScreen> {
   int _selectedIndex = 0; // Untuk mengelola indeks navigasi bawah
   String _selectedFilter = 'Semua'; // Untuk mengelola filter kegiatan yang dipilih
 
+  // Controller untuk inputan dialog
+  final TextEditingController _namaKegiatanController = TextEditingController();
+  final TextEditingController _detailKegiatanController = TextEditingController();
+
+  // Variabel untuk Datepicker & Dropdown di dialog
+  DateTime? _selectedDate;
+  DateTime? _selectedDeadline;
+  String? _selectedStatus;
+  String? _selectedJenis;
+
+  // Daftar opsi untuk Status Kegiatan
+  final List<String> _statusOptions = ['Belum Dimulai', 'Dalam Proses', 'Selesai'];
+
+  // Daftar opsi untuk Jenis Kegiatan (bisa diperluas nanti)
+  final List<String> _jenisKegiatanOptions = ['Pribadi', 'Kerja', 'Wishlist', 'Lainnya'];
+
+  // GlobalKey untuk form validasi
+  final _formKey = GlobalKey<FormState>();
+
   // Daftar halaman untuk Bottom Navigation Bar
-  late final List<Widget> _bottomNavPages;
+  // KITA AKAN HAPUS INISIALISASI DI SINI DAN PINDAHKAN KE BUILD METHOD
+  // late final List<Widget> _bottomNavPages; // <--- HAPUS BARIS INI
 
   @override
   void initState() {
     super.initState();
-    _bottomNavPages = <Widget>[
-      _buildTasksPage(), // Halaman Dashboard Kegiatan
-      const Center(child: Text('Halaman Kalender')),
-      const Center(child: Text('Halaman Milikku')),
-    ];
+    // Kita tidak akan menginisialisasi _bottomNavPages di sini lagi
+    // Karena _buildTasksPage bergantung pada context yang belum sepenuhnya siap.
   }
 
   @override
@@ -38,9 +55,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   @override
-  Widget build(BuildContext context) { // <--- METODE BUILD YANG HILANG/BELUM ADA
+  Widget build(BuildContext context) {
+    // Inisialisasi _bottomNavPages DI SINI (di dalam build method)
+    // agar _buildTasksPage bisa mengakses context dengan aman.
+    final List<Widget> bottomNavPages = <Widget>[
+      _buildTasksPage(context), // <--- Lewatkan context ke _buildTasksPage
+      const Center(child: Text('Halaman Kalender')),
+      const Center(child: Text('Halaman Milikku')),
+    ];
+
     return Scaffold(
-      body: _bottomNavPages.elementAt(_selectedIndex), // Menampilkan halaman sesuai Bottom Nav
+      body: bottomNavPages.elementAt(_selectedIndex), // Gunakan variabel lokal
 
       bottomNavigationBar: BottomNavigationBar(
         items: const <BottomNavigationBarItem>[
@@ -71,25 +96,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
     );
   }
-
-  // Controller untuk inputan dialog (Dideklarasikan di sini agar bisa diakses di _showAddTaskDialog)
-  final TextEditingController _namaKegiatanController = TextEditingController();
-  final TextEditingController _detailKegiatanController = TextEditingController();
-
-  // Variabel untuk Datepicker & Dropdown di dialog (Dideklarasikan di sini)
-  DateTime? _selectedDate;
-  DateTime? _selectedDeadline;
-  String? _selectedStatus;
-  String? _selectedJenis;
-
-  // Daftar opsi untuk Status Kegiatan
-  final List<String> _statusOptions = ['Belum Dimulai', 'Dalam Proses', 'Selesai'];
-
-  // Daftar opsi untuk Jenis Kegiatan (bisa diperluas nanti)
-  final List<String> _jenisKegiatanOptions = ['Pribadi', 'Kerja', 'Wishlist', 'Lainnya'];
-
-  // GlobalKey untuk form validasi
-  final _formKey = GlobalKey<FormState>();
 
   // --- Metode untuk Menampilkan Dialog Tambah Kegiatan ---
   void _showAddTaskDialog(BuildContext context) {
@@ -134,7 +140,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       const SizedBox(height: 16),
                       // Tanggal Kegiatan
                       ListTile(
-                        title: Text('Tanggal Kegiatan: ${dialogSelectedDate != null ? dialogSelectedDate?.toLocal().toString().split(' ')[0] : 'Pilih Tanggal'}'),
+                        title: Text('Tanggal Kegiatan: ${dialogSelectedDate != null ? dialogSelectedDate!.toLocal().toString().split(' ')[0] : 'Pilih Tanggal'}'),
                         trailing: const Icon(Icons.calendar_today),
                         onTap: () async {
                           final DateTime? picked = await showDatePicker(
@@ -176,7 +182,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       const SizedBox(height: 16),
                       // Deadline Kegiatan (Tanggal dan Jam)
                       ListTile(
-                        title: Text('Deadline: ${dialogSelectedDeadline != null ? dialogSelectedDeadline?.toLocal().toString().split('.')[0] : 'Pilih Tanggal & Jam'}'),
+                        title: Text('Deadline: ${dialogSelectedDeadline != null ? dialogSelectedDeadline!.toLocal().toString().split('.')[0] : 'Pilih Tanggal & Jam'}'),
                         trailing: const Icon(Icons.access_time),
                         onTap: () async {
                           final DateTime? pickedDate = await showDatePicker(
@@ -280,10 +286,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   // --- Metode untuk Membangun Halaman Tugas (Dashboard Kegiatan) ---
-  Widget _buildTasksPage() {
+  // Sekarang menerima BuildContext sebagai parameter
+  Widget _buildTasksPage(BuildContext context) { // <--- TAMBAHKAN BuildContext context
     bool hasTasks = false; // Akan diganti dengan logika pengecekan data tugas
-    // Ini adalah placeholder untuk ilustrasi, pastikan file gambar ada di assets/images/
-    // Jika tidak ada, kamu akan melihat error asset atau bisa ganti dengan Icon/Placeholder
     const String illustrationPath = 'assets/images/no_tasks_illustration.png';
 
     return Column(
@@ -294,8 +299,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Ruang untuk status bar di atas (biasanya otomatis, tapi ini untuk jaga-jaga)
-              SizedBox(height: MediaQuery.of(context).padding.top),
+              // Ruang untuk status bar di atas, sekarang akses context di sini
+              SizedBox(height: MediaQuery.of(context).padding.top), // <--- AMAN DI SINI SEKARANG
 
               // Bagian filter (Semua, Kerja, Pribadi, Wishlist)
               SingleChildScrollView(
@@ -369,8 +374,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        // Menggunakan try-catch untuk gambar jika path tidak valid/gambar tidak ada
-        // Untuk menghindari error merah di UI saat development jika aset belum siap
         Image.asset(
           illustrationPath,
           height: 200,
@@ -383,7 +386,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
           },
         ),
         const SizedBox(height: 30),
-        // Kotak pesan "Klik di sini untuk membuat tugas pertamamu."
         Container(
           margin: const EdgeInsets.symmetric(horizontal: 40),
           padding: const EdgeInsets.all(20),
