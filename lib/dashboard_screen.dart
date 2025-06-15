@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:bleau_todo_app/models/task.dart';
-import 'package:bleau_todo_app/screens/calendar_screen.dart'; // Import CalendarScreen
-import 'package:bleau_todo_app/screens/dashboard_chart_screen.dart'; // Import DashboardChartScreen
+import 'package:bleau_todo_app/screens/calendar_screen.dart';
+import 'package:bleau_todo_app/screens/dashboard_chart_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -16,7 +16,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   String _selectedFilter = 'Semua'; // Untuk mengelola filter kegiatan yang dipilih
 
   late Box<Task> _taskBox; // Deklarasi Box Hive untuk Task
-  List<Task> _tasks = []; // List untuk menyimpan data tugas yang dimuat
+  // List<Task> _tasks = []; // List ini tidak lagi diperlukan secara langsung karena ValueListenableBuilder
 
   // Controller untuk inputan dialog
   final TextEditingController _namaKegiatanController = TextEditingController();
@@ -50,27 +50,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
     } else {
       _taskBox = Hive.box<Task>('tasks');
     }
-    _loadTasks(); // Muat tugas setelah box terbuka
+    // _loadTasks(); // _loadTasks tidak lagi perlu dipanggil di sini karena ValueListenableBuilder
   }
 
+  // Metode _loadTasks masih dipertahankan jika ada kebutuhan untuk memuat ulang list
+  // di tempat lain, meskipun ValueListenableBuilder akan meng-handle sebagian besar.
+  // Untuk saat ini, kita bisa pertimbangkan untuk menghapus panggilannya dari _confirmDeleteTask dll.
+  // Tapi untuk menjaga konsistensi, biarkan dulu.
   void _loadTasks() {
-    setState(() {
-      // Pastikan _taskBox sudah diinisialisasi dan terbuka sebelum mengaksesnya
-      if (_taskBox.isOpen) {
-         _tasks = _taskBox.values.toList();
-      } else {
-         _tasks = []; // Jika box belum terbuka, set ke kosong
-      }
-    });
+    // Dengan ValueListenableBuilder, setState di sini mungkin tidak selalu diperlukan
+    // untuk memperbarui daftar tugas yang ditampilkan, tetapi tetap berguna untuk state _tasks jika digunakan.
+    // Namun, kita akan mengandalkan builder untuk tampilan.
   }
 
   @override
   void dispose() {
     _namaKegiatanController.dispose();
     _detailKegiatanController.dispose();
-    // Biasanya box ditutup di main atau saat aplikasi dihentikan sepenuhnya.
-    // Jika hanya di dispose widget, box bisa terbuka lagi saat widget di-rebuild.
-    // _taskBox.close(); 
+    // _taskBox.close(); // Tidak perlu menutup box di sini jika ingin tetap terbuka
     super.dispose();
   }
 
@@ -82,8 +79,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Inisialisasi bottomNavPages DI SINI, di dalam build()
-    // Agar context sudah sepenuhnya tersedia saat _buildTasksPage dipanggil
     final List<Widget> bottomNavPages = <Widget>[
       _buildTasksPage(context), // Halaman Dashboard Kegiatan (Tab "Tugas")
       const CalendarScreen(), // Halaman Kalender (Tab "Kalender")
@@ -129,8 +124,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 _initialSelectedJenis = null;
                 _showAddTaskDialog(context); // Memanggil metode untuk menampilkan dialog
               },
-              backgroundColor: Colors.blue,
               child: const Icon(Icons.add),
+              backgroundColor: Colors.blue,
             )
           : null, // Sembunyikan FAB di tab lain
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
@@ -165,7 +160,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 child: Form(
                   key: _formKey,
                   child: Column(
-                    mainAxisSize: MainAxisSize.min, // PERBAIKAN UNTUK MainAxisSize
+                    mainAxisSize: MainAxisSize.min,
                     children: <Widget>[
                       TextFormField(
                         controller: _namaKegiatanController,
@@ -299,7 +294,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         taskToEdit.type = dialogSelectedJenis ?? _jenisKegiatanOptions[0];
                         taskToEdit.save();
                       }
-                      _loadTasks();
+                      // _loadTasks(); // Tidak perlu lagi memanggil _loadTasks secara manual di sini
                       Navigator.of(dialogContext).pop();
                     }
                   },
@@ -371,7 +366,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               child: const Text('Hapus', style: TextStyle(color: Colors.white)),
               onPressed: () {
                 _taskBox.delete(taskKey);
-                _loadTasks();
+                // _loadTasks(); // Tidak perlu lagi memanggil _loadTasks secara manual di sini
                 Navigator.of(dialogContext).pop();
               },
             ),
@@ -391,7 +386,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           content: SingleChildScrollView(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min, // Corrected MainAxisSize.min
+              mainAxisSize: MainAxisSize.min,
               children: <Widget>[
                 const Divider(),
                 _buildDetailRow(
@@ -443,70 +438,79 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   // --- Metode untuk Membangun Halaman Tugas (Dashboard Kegiatan) ---
   Widget _buildTasksPage(BuildContext context) {
-    List<Task> filteredTasks = _tasks.where((task) {
-      if (_selectedFilter == 'Semua') {
-        return true;
-      } else if (task.type == _selectedFilter) {
-        return true;
-      }
-      return false;
-    }).toList();
+    // Menggunakan ValueListenableBuilder untuk mendengarkan perubahan pada _taskBox
+    return ValueListenableBuilder(
+      valueListenable: _taskBox.listenable(), // Mendengarkan perubahan pada box
+      builder: (context, Box<Task> box, _) {
+        List<Task> currentTasks = box.values.toList(); // Ambil tugas terbaru dari box
+        
+        // Filter tugas berdasarkan _selectedFilter
+        List<Task> filteredTasks = currentTasks.where((task) {
+          if (_selectedFilter == 'Semua') {
+            return true; // Tampilkan semua tugas
+          } else if (task.type == _selectedFilter) { // Filter berdasarkan jenis kegiatan
+            return true;
+          }
+          return false; // Jika tidak ada filter yang cocok
+        }).toList();
 
-    bool hasTasks = filteredTasks.isNotEmpty;
-    const String illustrationPath = 'assets/images/no_tasks_illustration.png';
+        bool hasTasks = filteredTasks.isNotEmpty;
+        const String illustrationPath = 'assets/images/no_tasks_illustration.png';
 
-    return Column(
-      children: [
-        Container(
-          padding: EdgeInsets.only(top: MediaQuery.of(context).padding.top + 16, left: 16, right: 16, bottom: 10),
-          decoration: BoxDecoration(
-            color: Theme.of(context).scaffoldBackgroundColor,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                spreadRadius: 0,
-                blurRadius: 10,
-                offset: const Offset(0, 5),
+        return Column(
+          children: [
+            Container(
+              padding: EdgeInsets.only(top: MediaQuery.of(context).padding.top + 16, left: 16, right: 16, bottom: 10),
+              decoration: BoxDecoration(
+                color: Theme.of(context).scaffoldBackgroundColor,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    spreadRadius: 0,
+                    blurRadius: 10,
+                    offset: const Offset(0, 5),
+                  ),
+                ],
               ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Halo, Pengguna!',
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 16),
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(vertical: 4.0),
-                child: Row(
-                  children: <Widget>[
-                    _buildFilterChip('Semua'),
-                    const SizedBox(width: 8),
-                    _buildFilterChip('Kerja'),
-                    const SizedBox(width: 8),
-                    _buildFilterChip('Pribadi'),
-                    const SizedBox(width: 8),
-                    _buildFilterChip('Wishlist'),
-                    const SizedBox(width: 8),
-                    IconButton(
-                      icon: Icon(Icons.more_horiz, color: Colors.grey[700]),
-                      onPressed: () {},
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Halo, Pengguna!',
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 16),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(vertical: 4.0),
+                    child: Row(
+                      children: <Widget>[
+                        _buildFilterChip('Semua'),
+                        const SizedBox(width: 8),
+                        _buildFilterChip('Kerja'),
+                        const SizedBox(width: 8),
+                        _buildFilterChip('Pribadi'),
+                        const SizedBox(width: 8),
+                        _buildFilterChip('Wishlist'),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          icon: Icon(Icons.more_horiz, color: Colors.grey[700]),
+                          onPressed: () {},
+                        ),
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ],
-          ),
-        ),
-        Expanded(
-          child: hasTasks
-              ? _buildTaskList(filteredTasks)
-              : _buildEmptyTasksState(illustrationPath),
-        ),
-      ],
+            ),
+            Expanded(
+              child: hasTasks
+                  ? _buildTaskList(filteredTasks)
+                  : _buildEmptyTasksState(illustrationPath),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -561,7 +565,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             },
             borderRadius: BorderRadius.circular(12),
             child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch, // Memastikan children meregang sesuai tinggi Row
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 // Leading color indicator based on task type
                 Container(
