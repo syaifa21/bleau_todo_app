@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:bleau_todo_app/models/task.dart';
-import 'package:bleau_todo_app/screens/calendar_screen.dart';
-import 'package:bleau_todo_app/screens/dashboard_chart_screen.dart';
+import 'package:bleau_todo_app/screens/calendar_screen.dart'; // Import CalendarScreen
+import 'package:bleau_todo_app/screens/dashboard_chart_screen.dart'; // Import DashboardChartScreen
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -37,10 +37,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // GlobalKey untuk form validasi
   final _formKey = GlobalKey<FormState>();
 
+  // Future yang akan menyimpan hasil inisialisasi Hive Box
+  late Future<void> _hiveInitFuture;
+
   @override
   void initState() {
     super.initState();
-    _openHiveBox(); // Panggil metode untuk membuka box Hive
+    _hiveInitFuture = _openHiveBox(); // Panggil metode untuk membuka box Hive
   }
 
   Future<void> _openHiveBox() async {
@@ -50,24 +53,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
     } else {
       _taskBox = Hive.box<Task>('tasks');
     }
-    // _loadTasks(); // _loadTasks tidak lagi perlu dipanggil di sini karena ValueListenableBuilder
+    // _loadTasks() tidak lagi perlu dipanggil di sini karena ValueListenableBuilder akan meng-handle
   }
 
-  // Metode _loadTasks masih dipertahankan jika ada kebutuhan untuk memuat ulang list
-  // di tempat lain, meskipun ValueListenableBuilder akan meng-handle sebagian besar.
-  // Untuk saat ini, kita bisa pertimbangkan untuk menghapus panggilannya dari _confirmDeleteTask dll.
-  // Tapi untuk menjaga konsistensi, biarkan dulu.
+  // Metode _loadTasks masih dipertahankan untuk mengupdate state _tasks jika digunakan
+  // Tapi untuk kebutuhan tampilan, ValueListenableBuilder lebih utama.
   void _loadTasks() {
-    // Dengan ValueListenableBuilder, setState di sini mungkin tidak selalu diperlukan
-    // untuk memperbarui daftar tugas yang ditampilkan, tetapi tetap berguna untuk state _tasks jika digunakan.
-    // Namun, kita akan mengandalkan builder untuk tampilan.
+    setState(() {
+      if (_taskBox.isOpen) {
+         // Di sini kita tidak lagi mengisi _tasks karena ValueListenableBuilder langsung membaca dari box
+         // Namun, jika kamu punya alasan lain untuk mengisi _tasks, bisa dipertahankan.
+      }
+    });
   }
 
   @override
   void dispose() {
     _namaKegiatanController.dispose();
     _detailKegiatanController.dispose();
-    // _taskBox.close(); // Tidak perlu menutup box di sini jika ingin tetap terbuka
     super.dispose();
   }
 
@@ -79,6 +82,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Inisialisasi bottomNavPages DI SINI, di dalam build()
+    // Agar context sudah sepenuhnya tersedia saat _buildTasksPage dipanggil
     final List<Widget> bottomNavPages = <Widget>[
       _buildTasksPage(context), // Halaman Dashboard Kegiatan (Tab "Tugas")
       const CalendarScreen(), // Halaman Kalender (Tab "Kalender")
@@ -86,33 +91,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
     ];
 
     return Scaffold(
-      body: bottomNavPages.elementAt(_selectedIndex),
-
-      bottomNavigationBar: BottomNavigationBar(
-        backgroundColor: Colors.white, // Latar belakang putih
-        selectedItemColor: Theme.of(context).primaryColor, // Warna biru dari tema
-        unselectedItemColor: Colors.grey[600], // Warna abu-abu untuk yang tidak terpilih
-        type: BottomNavigationBarType.fixed, // Pastikan semua item terlihat
-        elevation: 10, // Sedikit bayangan
-        items: const <BottomNavigationBarItem>[
-          BottomNavigationBarItem(
-            icon: Icon(Icons.assignment_outlined),
-            activeIcon: Icon(Icons.assignment),
-            label: 'Tugas',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.calendar_today_outlined),
-            activeIcon: Icon(Icons.calendar_today),
-            label: 'Kalender',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.bar_chart_outlined),
-            activeIcon: Icon(Icons.bar_chart),
-            label: 'Rekapan', // Label lebih umum untuk chart
-          ),
-        ],
-        currentIndex: _selectedIndex,
-        onTap: _onBottomNavItemTapped,
+      body: FutureBuilder( // <--- FUTUREBUILDER DITAMBAHKAN DI SINI
+        future: _hiveInitFuture, // Menggunakan future dari inisialisasi Hive Box
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.done) {
+            // Jika future sudah selesai, tampilkan konten utama
+            return bottomNavPages.elementAt(_selectedIndex);
+          } else if (snapshot.hasError) {
+            // Jika terjadi error saat inisialisasi
+            return Center(
+              child: Text('Error: ${snapshot.error}', style: TextStyle(color: Colors.red)),
+            );
+          } else {
+            // Selama future masih berjalan, tampilkan loading indicator
+            return const Center(child: CircularProgressIndicator());
+          }
+        },
       ),
       floatingActionButton: _selectedIndex == 0 // Hanya tampilkan FAB di tab "Tugas"
           ? FloatingActionButton(
@@ -129,6 +123,32 @@ class _DashboardScreenState extends State<DashboardScreen> {
             )
           : null, // Sembunyikan FAB di tab lain
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+      bottomNavigationBar: BottomNavigationBar( // Bottom Nav dipindahkan keluar FutureBuilder
+        backgroundColor: Colors.white,
+        selectedItemColor: Theme.of(context).primaryColor,
+        unselectedItemColor: Colors.grey[600],
+        type: BottomNavigationBarType.fixed,
+        elevation: 10,
+        items: const <BottomNavigationBarItem>[
+          BottomNavigationBarItem(
+            icon: Icon(Icons.assignment_outlined),
+            activeIcon: Icon(Icons.assignment),
+            label: 'Tugas',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.calendar_today_outlined),
+            activeIcon: Icon(Icons.calendar_today),
+            label: 'Kalender',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.bar_chart_outlined),
+            activeIcon: Icon(Icons.bar_chart),
+            label: 'Rekapan',
+          ),
+        ],
+        currentIndex: _selectedIndex,
+        onTap: _onBottomNavItemTapped,
+      ),
     );
   }
 
@@ -160,7 +180,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 child: Form(
                   key: _formKey,
                   child: Column(
-                    mainAxisSize: MainAxisSize.min,
+                    mainAxisSize: MainAxisSize.min, // PERBAIKAN UNTUK MainAxisSize
                     children: <Widget>[
                       TextFormField(
                         controller: _namaKegiatanController,
@@ -294,7 +314,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         taskToEdit.type = dialogSelectedJenis ?? _jenisKegiatanOptions[0];
                         taskToEdit.save();
                       }
-                      // _loadTasks(); // Tidak perlu lagi memanggil _loadTasks secara manual di sini
+                      // _loadTasks() tidak perlu lagi dipanggil secara manual di sini
                       Navigator.of(dialogContext).pop();
                     }
                   },
