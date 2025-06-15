@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:bleau_todo_app/models/task.dart';
-import 'package:bleau_todo_app/screens/calendar_screen.dart'; // Import CalendarScreen
-import 'package:bleau_todo_app/screens/dashboard_chart_screen.dart'; // Import DashboardChartScreen
+import 'package:bleau_todo_app/screens/calendar_screen.dart';
+import 'package:bleau_todo_app/screens/dashboard_chart_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -12,11 +12,10 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
-  int _selectedIndex = 0; // Untuk mengelola indeks navigasi bawah
-  String _selectedFilter = 'Semua'; // Untuk mengelola filter kegiatan yang dipilih
+  int _selectedIndex = 0;
+  String _selectedFilter = 'Semua';
 
   late Box<Task> _taskBox; // Deklarasi Box Hive untuk Task
-  // List<Task> _tasks = []; // List ini tidak lagi diperlukan secara langsung karena ValueListenableBuilder
 
   // Controller untuk inputan dialog
   final TextEditingController _namaKegiatanController = TextEditingController();
@@ -47,24 +46,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<void> _openHiveBox() async {
-    // Memastikan Hive sudah diinisialisasi di main.dart sebelum membuka box
     if (!Hive.isBoxOpen('tasks')) {
       _taskBox = await Hive.openBox<Task>('tasks'); // Buka box bernama 'tasks'
     } else {
       _taskBox = Hive.box<Task>('tasks');
     }
-    // _loadTasks() tidak lagi perlu dipanggil di sini karena ValueListenableBuilder akan meng-handle
   }
 
-  // Metode _loadTasks masih dipertahankan untuk mengupdate state _tasks jika digunakan
-  // Tapi untuk kebutuhan tampilan, ValueListenableBuilder lebih utama.
+  // Metode _loadTasks tidak lagi diperlukan karena ValueListenableBuilder langsung membaca dari box
+  // dan _tasks tidak lagi disimpan sebagai state di _DashboardScreenState.
+  // Method ini hanya akan dipertahankan sebagai placeholder jika ada panggilan dari luar.
   void _loadTasks() {
-    setState(() {
-      if (_taskBox.isOpen) {
-         // Di sini kita tidak lagi mengisi _tasks karena ValueListenableBuilder langsung membaca dari box
-         // Namun, jika kamu punya alasan lain untuk mengisi _tasks, bisa dipertahankan.
-      }
-    });
+    // Tidak ada implementasi yang diperlukan di sini lagi
   }
 
   @override
@@ -82,20 +75,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Inisialisasi bottomNavPages DI SINI, di dalam build()
-    // Agar context sudah sepenuhnya tersedia saat _buildTasksPage dipanggil
-    final List<Widget> bottomNavPages = <Widget>[
-      _buildTasksPage(context), // Halaman Dashboard Kegiatan (Tab "Tugas")
-      const CalendarScreen(), // Halaman Kalender (Tab "Kalender")
-      const DashboardChartScreen(), // Halaman Dashboard Chart (Tab "Milikku")
-    ];
-
     return Scaffold(
-      body: FutureBuilder( // <--- FUTUREBUILDER DITAMBAHKAN DI SINI
+      body: FutureBuilder(
         future: _hiveInitFuture, // Menggunakan future dari inisialisasi Hive Box
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.done) {
             // Jika future sudah selesai, tampilkan konten utama
+            final List<Widget> bottomNavPages = <Widget>[
+              // Perhatikan: _taskBox sekarang sudah dijamin terinisialisasi di sini
+              _buildTasksPage(context, _taskBox), // <--- Lewatkan _taskBox yang sudah diinisialisasi
+              const CalendarScreen(), // CalendarScreen akan membuka box-nya sendiri
+              const DashboardChartScreen(), // DashboardChartScreen akan membuka box-nya sendiri
+            ];
             return bottomNavPages.elementAt(_selectedIndex);
           } else if (snapshot.hasError) {
             // Jika terjadi error saat inisialisasi
@@ -457,21 +448,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   // --- Metode untuk Membangun Halaman Tugas (Dashboard Kegiatan) ---
-  Widget _buildTasksPage(BuildContext context) {
-    // Menggunakan ValueListenableBuilder untuk mendengarkan perubahan pada _taskBox
+  Widget _buildTasksPage(BuildContext context, Box<Task> taskBox) { // <--- Menerima Box<Task> sebagai parameter
+    // Menggunakan ValueListenableBuilder untuk mendengarkan perubahan pada box yang dilewatkan
     return ValueListenableBuilder(
-      valueListenable: _taskBox.listenable(), // Mendengarkan perubahan pada box
+      valueListenable: taskBox.listenable(), // Menggunakan box yang diterima sebagai parameter
       builder: (context, Box<Task> box, _) {
-        List<Task> currentTasks = box.values.toList(); // Ambil tugas terbaru dari box
+        List<Task> currentTasks = box.values.toList();
         
-        // Filter tugas berdasarkan _selectedFilter
         List<Task> filteredTasks = currentTasks.where((task) {
           if (_selectedFilter == 'Semua') {
-            return true; // Tampilkan semua tugas
-          } else if (task.type == _selectedFilter) { // Filter berdasarkan jenis kegiatan
+            return true;
+          } else if (task.type == _selectedFilter) {
             return true;
           }
-          return false; // Jika tidak ada filter yang cocok
+          return false;
         }).toList();
 
         bool hasTasks = filteredTasks.isNotEmpty;
