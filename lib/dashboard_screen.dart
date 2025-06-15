@@ -129,8 +129,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 _initialSelectedJenis = null;
                 _showAddTaskDialog(context); // Memanggil metode untuk menampilkan dialog
               },
-              child: const Icon(Icons.add),
               backgroundColor: Colors.blue,
+              child: const Icon(Icons.add),
             )
           : null, // Sembunyikan FAB di tab lain
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
