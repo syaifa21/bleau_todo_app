@@ -14,8 +14,8 @@ dependencies:
   cupertino_icons: ^1.0.8
   hive: ^2.1.0         # Versi Hive yang lebih stabil dan teruji
   hive_flutter: ^1.1.0 # Versi Hive Flutter yang lebih stabil dan teruji
-  table_calendar: ^3.1.2
-  fl_chart: ^0.68.0 
+  table_calendar: ^3.1.2 # Untuk halaman kalender
+  fl_chart: ^0.68.0    # Untuk halaman chart rekapan
 
 dev_dependencies:
   flutter_test:
@@ -25,9 +25,21 @@ dev_dependencies:
   hive_generator: ^1.1.3 # Versi hive_generator yang sesuai dengan Hive ^2.1.0
   build_runner: ^2.1.8 # Versi build_runner yang lebih lama dan sering stabil
   analyzer: ^4.7.0     # <--- VERSI ANALYZER YANG SUDAH KITA SESUAIKAN DENGAN hive_generator ^1.1.3
+  flutter_launcher_icons: ^0.13.1 # <--- Sudah ada di sini
 
 flutter:
   uses-material-design: true
 
   assets:
-    - assets/images/
+    - assets/images/ # Folder untuk ilustrasi (misal: no_tasks_illustration.png)
+    # Tambahkan folder untuk launcher icons juga di sini
+    - assets/launcher_icons/ # <--- Tambahkan ini agar gambar logo dikenali
+
+flutter_launcher_icons: # <--- BLOK KONFIGURASI INI YANG PENTING
+  android: "launcher_icon" # Nama ikon di Android, default "launcher_icon"
+  ios: true # Set ke true jika ingin menghasilkan ikon untuk iOS juga
+  image_path: "assets/launcher_icons/app_logo.png" # <--- GANTI DENGAN PATH LOKASI GAMBAR LOGO KAMU
+  min_sdk_android: 21 # SDK Android minimum (biasanya 21 untuk Flutter)
+  # Jika ingin ikon adaptif (foreground/background terpisah) untuk Android:
+  # adaptive_icon_background: "#ffffff"
+  # adaptive_icon_foreground: "assets/launcher_icons/app_logo_foreground.png"
