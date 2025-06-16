@@ -46,7 +46,6 @@ class _DashboardChartScreenState extends State<DashboardChartScreen> {
   }
 
   void _calculateTaskData() {
-    // *** PERBAIKAN UNTUK setState() called after dispose() ***
     if (!mounted) {
       return;
     }
@@ -64,7 +63,9 @@ class _DashboardChartScreenState extends State<DashboardChartScreen> {
 
   @override
   void dispose() {
-    if (Hive.isBoxOpen('tasks') && _taskBox.listenable().hasListeners) {
+    // *** KOREKSI: Menghapus '.hasListeners' dari kondisi ***
+    // Cukup pastikan box terbuka sebelum mencoba menghapus listener.
+    if (Hive.isBoxOpen('tasks')) { // Baris 67 yang dikoreksi
       _taskBox.listenable().removeListener(_calculateTaskData);
     }
     super.dispose();
