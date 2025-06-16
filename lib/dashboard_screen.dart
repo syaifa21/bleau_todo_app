@@ -16,7 +16,10 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   int _selectedIndex = 0;
+  // Variabel untuk menyimpan filter yang sedang aktif (status atau jenis)
   String _selectedFilter = 'Semua';
+  // Variabel untuk melacak mode filter: 'status' atau 'jenis'
+  String _filterMode = 'status'; // Default mode adalah berdasarkan status
 
   late Box<Task> _taskBox; // Deklarasi Box Hive untuk Task
 
@@ -30,10 +33,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
   String? _initialSelectedStatus;
   String? _initialSelectedJenis;
 
-  // Daftar opsi untuk Status Kegiatan
+  // Daftar opsi untuk Status Kegiatan (digunakan untuk filter dan dialog)
   final List<String> _statusOptions = ['Belum Dimulai', 'Dalam Proses', 'Selesai'];
 
-  // Daftar opsi untuk Jenis Kegiatan (sesuai diagram alur: Pribadi, Kerja, Wishlist, Lainnya)
+  // Daftar opsi untuk Jenis Kegiatan (digunakan untuk filter dan dialog)
   final List<String> _jenisKegiatanOptions = ['Pribadi', 'Kerja', 'Wishlist', 'Lainnya'];
 
   // GlobalKey untuk form validasi
@@ -41,8 +44,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   // Future yang akan menyimpan hasil inisialisasi Hive Box
   late Future<void> _hiveInitFuture;
-
-  // Hapus _dateTimeStream di sini, karena akan dibuat di dalam StreamBuilder
 
   @override
   void initState() {
@@ -80,8 +81,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
           if (snapshot.connectionState == ConnectionState.done) {
             // Jika future sudah selesai, tampilkan konten utama
             final List<Widget> bottomNavPages = <Widget>[
-              // Perhatikan: _taskBox sekarang sudah dijamin terinisialisasi di sini
-              // Kita langsung gunakan _taskBox yang sudah terbuka
               _buildTasksPage(context),
               const CalendarScreen(),
               const DashboardChartScreen(),
@@ -115,7 +114,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             )
           : null, // Sembunyikan FAB di tab lain
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-      bottomNavigationBar: BottomNavigationBar( // Bottom Nav dipindahkan keluar FutureBuilder
+      bottomNavigationBar: BottomNavigationBar(
         backgroundColor: Colors.white,
         selectedItemColor: Theme.of(context).primaryColor,
         unselectedItemColor: Colors.grey[600],
@@ -146,12 +145,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   // --- Metode untuk Menampilkan Dialog Tambah/Edit Kegiatan ---
   void _showAddTaskDialog(BuildContext context, {Task? taskToEdit}) {
-    // Isi controller dan variabel dengan data tugas yang akan diedit
-    // Jika taskToEdit null, ini adalah mode tambah, jadi gunakan nilai awal.
     _namaKegiatanController.text = taskToEdit?.name ?? '';
     _detailKegiatanController.text = taskToEdit?.detail ?? '';
 
-    // Gunakan variabel lokal di dalam builder untuk state dialog
     DateTime? dialogSelectedDate = taskToEdit?.date ?? _initialSelectedDate;
     DateTime? dialogSelectedDeadline = taskToEdit?.deadline ?? _initialSelectedDeadline;
     String? dialogSelectedStatus = taskToEdit?.status ?? _initialSelectedStatus;
@@ -164,15 +160,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
           builder: (BuildContext context, StateSetter setDialogState) {
             return AlertDialog(
               backgroundColor: Colors.white,
-              surfaceTintColor: Colors.white, // Menghilangkan overlay warna default Material 3
+              surfaceTintColor: Colors.white,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               title: Text(taskToEdit == null ? 'Tambah Kegiatan Baru' : 'Edit Kegiatan',
-                  style: Theme.of(context).textTheme.titleLarge), // Menggunakan gaya teks dari tema
+                  style: Theme.of(context).textTheme.titleLarge),
               content: SingleChildScrollView(
                 child: Form(
                   key: _formKey,
                   child: Column(
-                    mainAxisSize: MainAxisSize.min, // Pastikan Column tidak mengambil tinggi tak terbatas jika tidak perlu
+                    mainAxisSize: MainAxisSize.min,
                     children: <Widget>[
                       TextFormField(
                         controller: _namaKegiatanController,
@@ -448,26 +444,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   // --- Metode untuk Membangun Halaman Tugas (Dashboard Kegiatan) ---
   Widget _buildTasksPage(BuildContext context) {
-    // Menggunakan ValueListenableBuilder untuk mendengarkan perubahan pada box yang dilewatkan
     return ValueListenableBuilder(
       valueListenable: _taskBox.listenable(),
       builder: (context, Box<Task> box, _) {
         List<Task> currentTasks = box.values.toList();
 
+        // *** LOGIKA FILTER BARU: Dinamis berdasarkan _filterMode ***
         List<Task> filteredTasks = currentTasks.where((task) {
           if (_selectedFilter == 'Semua') {
             return true;
-          } else if (task.type == _selectedFilter) {
-            return true;
           }
-          return false;
+          if (_filterMode == 'status') {
+            return task.status == _selectedFilter;
+          } else { // _filterMode == 'jenis'
+            return task.type == _selectedFilter;
+          }
         }).toList();
 
         // Sort tasks by date, earliest first
         filteredTasks.sort((a, b) => a.date.compareTo(b.date));
 
         bool hasTasks = filteredTasks.isNotEmpty;
-        // Path yang benar untuk ilustrasi
         const String illustrationPath = 'assets/images/no_tasks_illustration.png';
 
         return Column(
@@ -488,16 +485,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // --- Bagian baru untuk menampilkan tanggal dan jam ---
-                  // *** PERBAIKAN UNTUK "Stream has already been listened to" ***
-                  // Membuat Stream.periodic langsung di sini agar setiap rebuild mendapatkan stream baru
                   StreamBuilder<DateTime>(
-                    stream: Stream.periodic(const Duration(seconds: 1), (_) => DateTime.now()), // Inisialisasi stream di sini
+                    stream: Stream.periodic(const Duration(seconds: 1), (_) => DateTime.now()),
                     builder: (context, snapshot) {
                       if (snapshot.hasData) {
                         final currentTime = snapshot.data!;
-                        // Menggunakan locale Indonesia (pastikan initializeDateFormatting sudah dipanggil di main.dart)
-                        final formattedDate = DateFormat('EEEE, dd MMMM yyyy', 'id_ID').format(currentTime);
+                        final formattedDate = DateFormat('EEEE, dd MMMM yyyy', 'id_ID').format(currentTime); // Menggunakan locale Indonesia
                         final formattedTime = DateFormat('HH:mm:ss').format(currentTime);
                         return Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -513,17 +506,51 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           ],
                         );
                       }
-                      return const SizedBox.shrink(); // Atau tampilkan loading indicator
+                      return const SizedBox.shrink();
                     },
                   ),
-                  const SizedBox(height: 8), // Spasi antara tanggal/jam dan salam
-                  // --- Akhir bagian tanggal dan jam ---
-
+                  const SizedBox(height: 8),
                   Text(
                     'Halo, Pengguna!',
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 16),
+                  // *** KONTROL TOGGLE FILTER ***
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: ToggleButtons(
+                      isSelected: [
+                        _filterMode == 'status',
+                        _filterMode == 'jenis',
+                      ],
+                      onPressed: (int index) {
+                        setState(() {
+                          if (index == 0) {
+                            _filterMode = 'status';
+                          } else {
+                            _filterMode = 'jenis';
+                          }
+                          _selectedFilter = 'Semua'; // Reset filter saat mode berubah
+                        });
+                      },
+                      borderRadius: BorderRadius.circular(8),
+                      selectedColor: Theme.of(context).colorScheme.onPrimary,
+                      fillColor: Theme.of(context).primaryColor,
+                      color: Theme.of(context).colorScheme.primary,
+                      textStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
+                      children: const <Widget>[
+                        Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 16),
+                          child: Text('Berdasarkan Status'),
+                        ),
+                        Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 16),
+                          child: Text('Berdasarkan Jenis'),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16), // Spasi setelah toggle
                   SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     padding: const EdgeInsets.symmetric(vertical: 4.0),
@@ -531,17 +558,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       children: <Widget>[
                         _buildFilterChip('Semua'),
                         const SizedBox(width: 8),
-                        _buildFilterChip('Kerja'),
-                        const SizedBox(width: 8),
-                        _buildFilterChip('Pribadi'),
-                        const SizedBox(width: 8),
-                        _buildFilterChip('Wishlist'),
-                        const SizedBox(width: 8),
-                        // IconButton for more filters if needed
+                        // *** CHIP FILTER DINAMIS ***
+                        if (_filterMode == 'status')
+                          ..._statusOptions.map((status) => Padding(
+                                padding: const EdgeInsets.only(right: 8.0),
+                                child: _buildFilterChip(status),
+                              )).toList()
+                        else // _filterMode == 'jenis'
+                          ..._jenisKegiatanOptions.map((jenis) => Padding(
+                                padding: const EdgeInsets.only(right: 8.0),
+                                child: _buildFilterChip(jenis),
+                              )).toList(),
                         IconButton(
                           icon: Icon(Icons.more_horiz, color: Colors.grey[700]),
                           onPressed: () {
-                            // Implement more filter options if needed
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(content: Text('Opsi filter lainnya belum diimplementasikan.')),
                             );
@@ -564,6 +594,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+  // Metode _buildFilterChip tidak berubah, karena logika seleksi sudah umum
   Widget _buildFilterChip(String label) {
     return ChoiceChip(
       label: Text(label),
@@ -615,17 +646,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
             },
             borderRadius: BorderRadius.circular(12),
             child: Row(
-              // *** PERBAIKAN UTAMA LAYOUT DI SINI ***
-              // Mengubah crossAxisAlignment dari .stretch ke .start
-              // Ini mencegah anak-anak Row mencoba mengambil tinggi tak terbatas.
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Leading color indicator based on task type
                 Container(
                   width: 8,
-                  // Tinggi container ini akan menyesuaikan tinggi Row secara otomatis
-                  // karena crossAxisAlignment sekarang 'start' dan Row akan mengambil tinggi minimum
-                  // yang diperlukan oleh konten anak-anaknya.
                   decoration: BoxDecoration(
                     color: _getTaskTypeColor(task.type),
                     borderRadius: const BorderRadius.horizontal(left: Radius.circular(12)),
@@ -636,8 +660,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     padding: const EdgeInsets.all(18.0),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      // *** PERHATIAN: Pastikan ini ada ***
-                      // Memastikan Column mengambil tinggi seminimal mungkin
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
@@ -698,7 +720,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // Metode pembantu untuk mendapatkan warna berdasarkan jenis tugas
   Color _getTaskTypeColor(String type) {
     switch (type) {
       case 'Pribadi':
