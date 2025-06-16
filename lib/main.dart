@@ -1,13 +1,19 @@
+// Path: lib/main.dart
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:bleau_todo_app/dashboard_screen.dart';
 import 'package:bleau_todo_app/models/task.dart';
+import 'package:intl/date_symbol_data_local.dart'; // Tambahkan ini
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await Hive.initFlutter();
   Hive.registerAdapter(TaskAdapter());
+
+  // *** PERBAIKAN UNTUK LocaleDataException ***
+  // Inisialisasi data locale untuk 'id_ID'
+  await initializeDateFormatting('id_ID', null); // Panggil ini sebelum runApp
 
   runApp(const MyApp());
 }
@@ -76,7 +82,7 @@ class MyApp extends StatelessWidget {
           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           hintStyle: TextStyle(color: Colors.grey[500]),
         ),
-        dropdownMenuTheme: DropdownMenuThemeData(
+        dropdownMenuTheme: const DropdownMenuThemeData( // Menggunakan const jika properti dalamnya juga const
           textStyle: TextStyle(color: Colors.black87),
         ),
       ),

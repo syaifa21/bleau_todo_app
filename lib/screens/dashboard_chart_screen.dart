@@ -1,3 +1,4 @@
+// Path: lib/screens/dashboard_chart_screen.dart
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -31,24 +32,25 @@ class _DashboardChartScreenState extends State<DashboardChartScreen> {
   @override
   void initState() {
     super.initState();
-    if (Hive.isBoxOpen('tasks')) {
-      _taskBox = Hive.box<Task>('tasks');
-      _calculateTaskData();
-    } else {
-      _openHiveBoxAndCalculateData();
-    }
-
-    // Mendengarkan perubahan di Hive Box untuk memperbarui chart secara real-time
-    _taskBox.listenable().addListener(_calculateTaskData);
+    _openHiveBoxAndCalculateData();
   }
 
   Future<void> _openHiveBoxAndCalculateData() async {
-    await Hive.openBox<Task>('tasks');
-    _taskBox = Hive.box<Task>('tasks');
+    if (!Hive.isBoxOpen('tasks')) {
+      _taskBox = await Hive.openBox<Task>('tasks');
+    } else {
+      _taskBox = Hive.box<Task>('tasks');
+    }
+    _taskBox.listenable().addListener(_calculateTaskData);
     _calculateTaskData();
   }
 
   void _calculateTaskData() {
+    // *** PERBAIKAN UNTUK setState() called after dispose() ***
+    if (!mounted) {
+      return;
+    }
+
     _taskTypeCounts = {};
     _taskStatusCounts = {};
 
@@ -62,8 +64,9 @@ class _DashboardChartScreenState extends State<DashboardChartScreen> {
 
   @override
   void dispose() {
-    // Hapus listener saat widget di-dispose untuk mencegah memory leaks
-    _taskBox.listenable().removeListener(_calculateTaskData);
+    if (Hive.isBoxOpen('tasks') && _taskBox.listenable().hasListeners) {
+      _taskBox.listenable().removeListener(_calculateTaskData);
+    }
     super.dispose();
   }
 
@@ -105,7 +108,7 @@ class _DashboardChartScreenState extends State<DashboardChartScreen> {
                     dataCounts: _taskTypeCounts,
                     colors: _typeColors,
                   ),
-                  const SizedBox(height: 40), // Lebih banyak spasi antar chart
+                  const SizedBox(height: 40),
                   _buildChartSection(
                     title: 'Berdasarkan Status Kegiatan',
                     dataCounts: _taskStatusCounts,
@@ -128,10 +131,10 @@ class _DashboardChartScreenState extends State<DashboardChartScreen> {
     }
 
     List<PieChartSectionData> sections = dataCounts.entries.map((entry) {
-      final percentage = (entry.value / _taskBox.length) * 100;
+      final percentage = (entry.value / (_taskBox.length > 0 ? _taskBox.length : 1)) * 100;
       final isTouched = false;
       final fontSize = isTouched ? 20.0 : 14.0;
-      final radius = isTouched ? 65.0 : 60.0; // Ukuran radius chart
+      final radius = isTouched ? 65.0 : 60.0;
       final widgetStyle = TextStyle(
         color: Colors.white,
         fontSize: fontSize,
@@ -141,7 +144,7 @@ class _DashboardChartScreenState extends State<DashboardChartScreen> {
       return PieChartSectionData(
         color: colors[entry.key] ?? Colors.grey,
         value: entry.value.toDouble(),
-        title: '${percentage.toStringAsFixed(1)}%', // Tampilkan persentase
+        title: '${percentage.toStringAsFixed(1)}%',
         radius: radius,
         titleStyle: widgetStyle,
         badgeWidget: _buildBadge(entry.key, colors[entry.key] ?? Colors.grey),
@@ -149,7 +152,7 @@ class _DashboardChartScreenState extends State<DashboardChartScreen> {
       );
     }).toList();
 
-    return Card( // Bungkus chart dalam Card
+    return Card(
       elevation: 4,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Padding(
@@ -163,13 +166,13 @@ class _DashboardChartScreenState extends State<DashboardChartScreen> {
             ),
             const SizedBox(height: 24),
             SizedBox(
-              height: 220, // Ukuran chart lebih besar
+              height: 220,
               child: PieChart(
                 PieChartData(
                   pieTouchData: PieTouchData(enabled: false),
                   sections: sections,
-                  centerSpaceRadius: 50, // Lubang tengah lebih besar
-                  sectionsSpace: 3, // Jarak antar segmen lebih lebar
+                  centerSpaceRadius: 50,
+                  sectionsSpace: 3,
                 ),
               ),
             ),
@@ -199,7 +202,7 @@ class _DashboardChartScreenState extends State<DashboardChartScreen> {
                 ),
               ),
               const SizedBox(width: 12),
-              Expanded( // Agar teks tidak overflow
+              Expanded(
                 child: Text(
                   '${entry.key}: ${entry.value} (${percentage.toStringAsFixed(1)}%)',
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Colors.blueGrey[700]),

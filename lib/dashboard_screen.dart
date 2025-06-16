@@ -42,16 +42,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // Future yang akan menyimpan hasil inisialisasi Hive Box
   late Future<void> _hiveInitFuture;
 
-  // Untuk menampilkan tanggal dan waktu real-time
-  late Stream<DateTime> _dateTimeStream;
+  // Hapus _dateTimeStream di sini, karena akan dibuat di dalam StreamBuilder
 
   @override
   void initState() {
     super.initState();
     _hiveInitFuture = _openHiveBox(); // Panggil metode untuk membuka box Hive
-
-    // Inisialisasi stream untuk tanggal dan waktu
-    _dateTimeStream = Stream.periodic(const Duration(seconds: 1), (_) => DateTime.now());
   }
 
   Future<void> _openHiveBox() async {
@@ -471,8 +467,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         filteredTasks.sort((a, b) => a.date.compareTo(b.date));
 
         bool hasTasks = filteredTasks.isNotEmpty;
-        // Perhatikan perbaikan path untuk ilustrasi
-        const String illustrationPath = 'assets/images/no_tasks_illustration.png'; // Path yang benar
+        // Path yang benar untuk ilustrasi
+        const String illustrationPath = 'assets/images/no_tasks_illustration.png';
 
         return Column(
           children: [
@@ -493,12 +489,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // --- Bagian baru untuk menampilkan tanggal dan jam ---
+                  // *** PERBAIKAN UNTUK "Stream has already been listened to" ***
+                  // Membuat Stream.periodic langsung di sini agar setiap rebuild mendapatkan stream baru
                   StreamBuilder<DateTime>(
-                    stream: _dateTimeStream,
+                    stream: Stream.periodic(const Duration(seconds: 1), (_) => DateTime.now()), // Inisialisasi stream di sini
                     builder: (context, snapshot) {
                       if (snapshot.hasData) {
                         final currentTime = snapshot.data!;
-                        final formattedDate = DateFormat('EEEE, dd MMMM yyyy', 'id_ID').format(currentTime); // Menggunakan locale Indonesia
+                        // Menggunakan locale Indonesia (pastikan initializeDateFormatting sudah dipanggil di main.dart)
+                        final formattedDate = DateFormat('EEEE, dd MMMM yyyy', 'id_ID').format(currentTime);
                         final formattedTime = DateFormat('HH:mm:ss').format(currentTime);
                         return Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
