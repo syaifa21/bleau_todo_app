@@ -4,8 +4,8 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:bleau_todo_app/models/task.dart';
 import 'package:bleau_todo_app/screens/calendar_screen.dart';
 import 'package:bleau_todo_app/screens/dashboard_chart_screen.dart';
-import 'package:intl/intl.dart'; // Tambahkan ini untuk format tanggal dan waktu
-import 'dart:async'; // Tambahkan ini untuk Timer
+import 'package:intl/intl.dart';
+import 'dart:async';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -16,44 +16,35 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   int _selectedIndex = 0;
-  // Variabel untuk menyimpan filter yang sedang aktif (status atau jenis)
+  // Filter utama adalah berdasarkan status kegiatan
   String _selectedFilter = 'Semua';
-  // Variabel untuk melacak mode filter: 'status' atau 'jenis'
-  String _filterMode = 'status'; // Default mode adalah berdasarkan status
 
-  late Box<Task> _taskBox; // Deklarasi Box Hive untuk Task
+  late Box<Task> _taskBox;
 
-  // Controller untuk inputan dialog
   final TextEditingController _namaKegiatanController = TextEditingController();
   final TextEditingController _detailKegiatanController = TextEditingController();
 
-  // Variabel untuk Datepicker & Dropdown di dialog (digunakan sebagai nilai awal)
   DateTime? _initialSelectedDate;
   DateTime? _initialSelectedDeadline;
   String? _initialSelectedStatus;
   String? _initialSelectedJenis;
 
-  // Daftar opsi untuk Status Kegiatan (digunakan untuk filter dan dialog)
   final List<String> _statusOptions = ['Belum Dimulai', 'Dalam Proses', 'Selesai'];
-
-  // Daftar opsi untuk Jenis Kegiatan (digunakan untuk filter dan dialog)
   final List<String> _jenisKegiatanOptions = ['Pribadi', 'Kerja', 'Wishlist', 'Lainnya'];
 
-  // GlobalKey untuk form validasi
   final _formKey = GlobalKey<FormState>();
 
-  // Future yang akan menyimpan hasil inisialisasi Hive Box
   late Future<void> _hiveInitFuture;
 
   @override
   void initState() {
     super.initState();
-    _hiveInitFuture = _openHiveBox(); // Panggil metode untuk membuka box Hive
+    _hiveInitFuture = _openHiveBox();
   }
 
   Future<void> _openHiveBox() async {
     if (!Hive.isBoxOpen('tasks')) {
-      _taskBox = await Hive.openBox<Task>('tasks'); // Buka box bernama 'tasks'
+      _taskBox = await Hive.openBox<Task>('tasks');
     } else {
       _taskBox = Hive.box<Task>('tasks');
     }
@@ -76,10 +67,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: FutureBuilder(
-        future: _hiveInitFuture, // Menggunakan future dari inisialisasi Hive Box
+        future: _hiveInitFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.done) {
-            // Jika future sudah selesai, tampilkan konten utama
             final List<Widget> bottomNavPages = <Widget>[
               _buildTasksPage(context),
               const CalendarScreen(),
@@ -87,32 +77,29 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ];
             return bottomNavPages.elementAt(_selectedIndex);
           } else if (snapshot.hasError) {
-            // Jika terjadi error saat inisialisasi
             return Center(
               child: Text('Error: ${snapshot.error}', style: TextStyle(color: Colors.red)),
             );
           } else {
-            // Selama future masih berjalan, tampilkan loading indicator
             return const Center(child: CircularProgressIndicator());
           }
         },
       ),
-      floatingActionButton: _selectedIndex == 0 // Hanya tampilkan FAB di tab "Tugas"
+      floatingActionButton: _selectedIndex == 0
           ? FloatingActionButton(
               onPressed: () {
-                // Reset nilai awal untuk form "Tambah Kegiatan"
                 _namaKegiatanController.clear();
                 _detailKegiatanController.clear();
                 _initialSelectedDate = DateTime.now();
                 _initialSelectedDeadline = null;
                 _initialSelectedStatus = null;
                 _initialSelectedJenis = null;
-                _showAddTaskDialog(context); // Memanggil metode untuk menampilkan dialog
+                _showAddTaskDialog(context);
               },
               child: const Icon(Icons.add),
               backgroundColor: Colors.blue,
             )
-          : null, // Sembunyikan FAB di tab lain
+          : null,
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       bottomNavigationBar: BottomNavigationBar(
         backgroundColor: Colors.white,
@@ -143,7 +130,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // --- Metode untuk Menampilkan Dialog Tambah/Edit Kegiatan ---
   void _showAddTaskDialog(BuildContext context, {Task? taskToEdit}) {
     _namaKegiatanController.text = taskToEdit?.name ?? '';
     _detailKegiatanController.text = taskToEdit?.detail ?? '';
@@ -382,7 +368,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // --- Metode untuk Menampilkan Dialog Detail Kegiatan ---
   void _showTaskDetailDialog(BuildContext context, Task task) {
     showDialog(
       context: context,
@@ -420,7 +405,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // Widget pembantu untuk baris detail
   Widget _buildDetailRow(String label, String value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
@@ -449,19 +433,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
       builder: (context, Box<Task> box, _) {
         List<Task> currentTasks = box.values.toList();
 
-        // *** LOGIKA FILTER BARU: Dinamis berdasarkan _filterMode ***
+        // LOGIKA FILTER UTAMA: Berdasarkan Status Kegiatan
         List<Task> filteredTasks = currentTasks.where((task) {
           if (_selectedFilter == 'Semua') {
             return true;
           }
-          if (_filterMode == 'status') {
-            return task.status == _selectedFilter;
-          } else { // _filterMode == 'jenis'
-            return task.type == _selectedFilter;
-          }
+          // Filter hanya berdasarkan status
+          return task.status == _selectedFilter;
         }).toList();
 
-        // Sort tasks by date, earliest first
+        // Urutkan tugas berdasarkan tanggal, paling awal lebih dulu
         filteredTasks.sort((a, b) => a.date.compareTo(b.date));
 
         bool hasTasks = filteredTasks.isNotEmpty;
@@ -490,7 +471,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     builder: (context, snapshot) {
                       if (snapshot.hasData) {
                         final currentTime = snapshot.data!;
-                        final formattedDate = DateFormat('EEEE, dd MMMM yyyy', 'id_ID').format(currentTime); // Menggunakan locale Indonesia
+                        final formattedDate = DateFormat('EEEE, dd MMMM𓂃', 'id_ID').format(currentTime);
                         final formattedTime = DateFormat('HH:mm:ss').format(currentTime);
                         return Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -515,42 +496,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 16),
-                  // *** KONTROL TOGGLE FILTER ***
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: ToggleButtons(
-                      isSelected: [
-                        _filterMode == 'status',
-                        _filterMode == 'jenis',
-                      ],
-                      onPressed: (int index) {
-                        setState(() {
-                          if (index == 0) {
-                            _filterMode = 'status';
-                          } else {
-                            _filterMode = 'jenis';
-                          }
-                          _selectedFilter = 'Semua'; // Reset filter saat mode berubah
-                        });
-                      },
-                      borderRadius: BorderRadius.circular(8),
-                      selectedColor: Theme.of(context).colorScheme.onPrimary,
-                      fillColor: Theme.of(context).primaryColor,
-                      color: Theme.of(context).colorScheme.primary,
-                      textStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
-                      children: const <Widget>[
-                        Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 16),
-                          child: Text('Berdasarkan Status'),
-                        ),
-                        Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 16),
-                          child: Text('Berdasarkan Jenis'),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16), // Spasi setelah toggle
+                  // *** BARIS FILTER STATUS ***
                   SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     padding: const EdgeInsets.symmetric(vertical: 4.0),
@@ -558,17 +504,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       children: <Widget>[
                         _buildFilterChip('Semua'),
                         const SizedBox(width: 8),
-                        // *** CHIP FILTER DINAMIS ***
-                        if (_filterMode == 'status')
-                          ..._statusOptions.map((status) => Padding(
-                                padding: const EdgeInsets.only(right: 8.0),
-                                child: _buildFilterChip(status),
-                              )).toList()
-                        else // _filterMode == 'jenis'
-                          ..._jenisKegiatanOptions.map((jenis) => Padding(
-                                padding: const EdgeInsets.only(right: 8.0),
-                                child: _buildFilterChip(jenis),
-                              )).toList(),
+                        ..._statusOptions.map((status) => Padding(
+                              padding: const EdgeInsets.only(right: 8.0),
+                              child: _buildFilterChip(status),
+                            )).toList(),
                         IconButton(
                           icon: Icon(Icons.more_horiz, color: Colors.grey[700]),
                           onPressed: () {
@@ -580,12 +519,50 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ],
                     ),
                   ),
+                  const SizedBox(height: 16),
                 ],
               ),
             ),
+            // *** BAGIAN UNTUK MENAMPILKAN TUGAS YANG DIKELOMPOKKAN BERDASARKAN JENIS ***
             Expanded(
               child: hasTasks
-                  ? _buildTaskList(filteredTasks)
+                  ? SingleChildScrollView( // Menggunakan SingleChildScrollView untuk seluruh konten daftar tugas
+                      child: Column( // Column ini akan menampung semua grup jenis kegiatan
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Iterasi melalui setiap jenis kegiatan yang mungkin
+                          ..._jenisKegiatanOptions.map((type) {
+                            // Filter tugas yang difilter oleh status, untuk jenis tertentu
+                            List<Task> tasksForType = filteredTasks
+                                .where((task) => task.type == type)
+                                .toList();
+
+                            // Jika tidak ada tugas untuk jenis ini, sembunyikan bagiannya
+                            if (tasksForType.isEmpty) {
+                              return const SizedBox.shrink();
+                            }
+
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+                                  child: Text(
+                                    type, // Judul grup (misal: "Pribadi", "Kerja")
+                                    style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold, color: Theme.of(context).primaryColor),
+                                  ),
+                                ),
+                                // Gunakan Column dari _buildTaskCard untuk tugas-tugas dalam grup ini
+                                ...tasksForType.map((task) => _buildTaskCard(task)).toList(),
+                                // Beri jarak antar grup, kecuali jika ini grup terakhir
+                                if (_jenisKegiatanOptions.last != type)
+                                  const SizedBox(height: 24),
+                              ],
+                            );
+                          }).toList(),
+                        ],
+                      ),
+                    )
                   : _buildEmptyTasksState(illustrationPath),
             ),
           ],
@@ -594,7 +571,93 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // Metode _buildFilterChip tidak berubah, karena logika seleksi sudah umum
+  // Metode _buildTaskCard baru untuk membuat tampilan kartu tugas
+  Widget _buildTaskCard(Task task) {
+    final taskKey = task.key; // Dapatkan key tugas untuk operasi hapus/edit
+
+    return Card(
+      elevation: 4,
+      margin: const EdgeInsets.only(bottom: 16, left: 16, right: 16), // Tambah margin horizontal
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: InkWell(
+        onTap: () {
+          _showTaskDetailDialog(context, task);
+        },
+        borderRadius: BorderRadius.circular(12),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 8,
+              decoration: BoxDecoration(
+                color: _getTaskTypeColor(task.type),
+                borderRadius: const BorderRadius.horizontal(left: Radius.circular(12)),
+              ),
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(18.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      task.name,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, color: Colors.blueGrey[800]),
+                    ),
+                    if (task.detail != null && task.detail!.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 6.0),
+                        child: Text(
+                          task.detail!,
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.blueGrey[600]),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    const SizedBox(height: 12),
+                    _buildTaskInfoRow(Icons.calendar_today_outlined, 'Tanggal', task.date.toLocal().toString().split(' ')[0]),
+                    if (task.deadline != null)
+                      _buildTaskInfoRow(Icons.access_time, 'Deadline', task.deadline!.toLocal().toString().split('.')[0]),
+                    _buildTaskInfoRow(Icons.category_outlined, 'Jenis', task.type),
+                    _buildTaskInfoRow(Icons.info_outline, 'Status', task.status),
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        IconButton(
+                          icon: Icon(Icons.edit, color: Theme.of(context).primaryColor),
+                          onPressed: () {
+                            _showAddTaskDialog(context, taskToEdit: task);
+                          },
+                          tooltip: 'Edit Kegiatan',
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                          onPressed: () {
+                            if (taskKey != null) {
+                              _confirmDeleteTask(context, taskKey, task.name);
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Tidak dapat menghapus: Task Key tidak ditemukan.')),
+                              );
+                            }
+                          },
+                          tooltip: 'Hapus Kegiatan',
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildFilterChip(String label) {
     return ChoiceChip(
       label: Text(label),
@@ -621,102 +684,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
       elevation: 2,
       shadowColor: Colors.black12,
-    );
-  }
-
-  Widget _buildTaskList(List<Task> tasks) {
-    if (tasks.isEmpty) {
-      return const Center(child: Text('Tidak ada tugas untuk ditampilkan dengan filter ini.'));
-    }
-    return ListView.builder(
-      padding: const EdgeInsets.only(top: 16.0, left: 16.0, right: 16.0),
-      itemCount: tasks.length,
-      itemBuilder: (context, index) {
-        final task = tasks[index];
-        final taskKey = task.key;
-
-        return Card(
-          elevation: 4,
-          margin: const EdgeInsets.only(bottom: 16),
-          clipBehavior: Clip.antiAlias,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          child: InkWell(
-            onTap: () {
-              _showTaskDetailDialog(context, task);
-            },
-            borderRadius: BorderRadius.circular(12),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: 8,
-                  decoration: BoxDecoration(
-                    color: _getTaskTypeColor(task.type),
-                    borderRadius: const BorderRadius.horizontal(left: Radius.circular(12)),
-                  ),
-                ),
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.all(18.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          task.name,
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, color: Colors.blueGrey[800]),
-                        ),
-                        if (task.detail != null && task.detail!.isNotEmpty)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 6.0),
-                            child: Text(
-                              task.detail!,
-                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.blueGrey[600]),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        const SizedBox(height: 12),
-                        _buildTaskInfoRow(Icons.calendar_today_outlined, 'Tanggal', task.date.toLocal().toString().split(' ')[0]),
-                        if (task.deadline != null)
-                          _buildTaskInfoRow(Icons.access_time, 'Deadline', task.deadline!.toLocal().toString().split('.')[0]),
-                        _buildTaskInfoRow(Icons.category_outlined, 'Jenis', task.type),
-                        _buildTaskInfoRow(Icons.info_outline, 'Status', task.status),
-                        const SizedBox(height: 12),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          children: [
-                            IconButton(
-                              icon: Icon(Icons.edit, color: Theme.of(context).primaryColor),
-                              onPressed: () {
-                                _showAddTaskDialog(context, taskToEdit: task);
-                              },
-                              tooltip: 'Edit Kegiatan',
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
-                              onPressed: () {
-                                if (taskKey != null) {
-                                  _confirmDeleteTask(context, taskKey, task.name);
-                                } else {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text('Tidak dapat menghapus: Task Key tidak ditemukan.')),
-                                  );
-                                }
-                              },
-                              tooltip: 'Hapus Kegiatan',
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
     );
   }
 
