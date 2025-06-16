@@ -1,3 +1,4 @@
+// Path: lib/dashboard_screen.dart
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:bleau_todo_app/models/task.dart';
@@ -53,13 +54,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
-  // Metode _loadTasks tidak lagi diperlukan karena ValueListenableBuilder langsung membaca dari box
-  // dan _tasks tidak lagi disimpan sebagai state di _DashboardScreenState.
-  // Method ini hanya akan dipertahankan sebagai placeholder jika ada panggilan dari luar.
-  void _loadTasks() {
-    // Tidak ada implementasi yang diperlukan di sini lagi
-  }
-
   @override
   void dispose() {
     _namaKegiatanController.dispose();
@@ -83,9 +77,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
             // Jika future sudah selesai, tampilkan konten utama
             final List<Widget> bottomNavPages = <Widget>[
               // Perhatikan: _taskBox sekarang sudah dijamin terinisialisasi di sini
-              _buildTasksPage(context, _taskBox), // <--- Lewatkan _taskBox yang sudah diinisialisasi
-              const CalendarScreen(), // CalendarScreen akan membuka box-nya sendiri
-              const DashboardChartScreen(), // DashboardChartScreen akan membuka box-nya sendiri
+              // Kita langsung gunakan _taskBox yang sudah terbuka
+              _buildTasksPage(context), 
+              const CalendarScreen(), 
+              const DashboardChartScreen(), 
             ];
             return bottomNavPages.elementAt(_selectedIndex);
           } else if (snapshot.hasError) {
@@ -103,6 +98,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ? FloatingActionButton(
               onPressed: () {
                 // Reset nilai awal untuk form "Tambah Kegiatan"
+                _namaKegiatanController.clear();
+                _detailKegiatanController.clear();
                 _initialSelectedDate = DateTime.now();
                 _initialSelectedDeadline = null;
                 _initialSelectedStatus = null;
@@ -305,7 +302,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         taskToEdit.type = dialogSelectedJenis ?? _jenisKegiatanOptions[0];
                         taskToEdit.save();
                       }
-                      // _loadTasks() tidak perlu lagi dipanggil secara manual di sini
                       Navigator.of(dialogContext).pop();
                     }
                   },
@@ -377,7 +373,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
               child: const Text('Hapus', style: TextStyle(color: Colors.white)),
               onPressed: () {
                 _taskBox.delete(taskKey);
-                // _loadTasks(); // Tidak perlu lagi memanggil _loadTasks secara manual di sini
                 Navigator.of(dialogContext).pop();
               },
             ),
@@ -448,10 +443,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   // --- Metode untuk Membangun Halaman Tugas (Dashboard Kegiatan) ---
-  Widget _buildTasksPage(BuildContext context, Box<Task> taskBox) { // <--- Menerima Box<Task> sebagai parameter
+  Widget _buildTasksPage(BuildContext context) { 
     // Menggunakan ValueListenableBuilder untuk mendengarkan perubahan pada box yang dilewatkan
     return ValueListenableBuilder(
-      valueListenable: taskBox.listenable(), // Menggunakan box yang diterima sebagai parameter
+      valueListenable: _taskBox.listenable(), 
       builder: (context, Box<Task> box, _) {
         List<Task> currentTasks = box.values.toList();
         
@@ -463,6 +458,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
           }
           return false;
         }).toList();
+
+        // Sort tasks by date, earliest first
+        filteredTasks.sort((a, b) => a.date.compareTo(b.date));
 
         bool hasTasks = filteredTasks.isNotEmpty;
         const String illustrationPath = 'assets/images/no_tasks_illustration.png';
@@ -503,9 +501,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         const SizedBox(width: 8),
                         _buildFilterChip('Wishlist'),
                         const SizedBox(width: 8),
+                        // IconButton for more filters if needed
                         IconButton(
                           icon: Icon(Icons.more_horiz, color: Colors.grey[700]),
-                          onPressed: () {},
+                          onPressed: () {
+                            // Implement more filter options if needed
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Opsi filter lainnya belum diimplementasikan.')),
+                            );
+                          },
                         ),
                       ],
                     ),
@@ -558,7 +562,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       return const Center(child: Text('Tidak ada tugas untuk ditampilkan dengan filter ini.'));
     }
     return ListView.builder(
-      padding: const EdgeInsets.only(top: 16.0),
+      padding: const EdgeInsets.only(top: 16.0, left: 16.0, right: 16.0), // Menambahkan padding horizontal
       itemCount: tasks.length,
       itemBuilder: (context, index) {
         final task = tasks[index];
@@ -566,6 +570,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
         return Card(
           elevation: 4,
+          margin: const EdgeInsets.only(bottom: 16), // Memberi jarak antar Card
           clipBehavior: Clip.antiAlias,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
 
