@@ -21,6 +21,7 @@ dependencies:
   provider: ^6.0.5 # <--- Tambahkan ini
   shared_preferences: ^2.2.0 # <--- Tambahkan ini
   file_picker: ^8.0.0
+  open_filex: ^4.3.2
 
 dev_dependencies:
   flutter_test:
