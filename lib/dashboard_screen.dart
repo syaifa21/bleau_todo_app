@@ -6,7 +6,9 @@ import 'package:bleau_todo_app/screens/calendar_screen.dart';
 import 'package:bleau_todo_app/screens/dashboard_chart_screen.dart';
 import 'package:intl/intl.dart';
 import 'dart:async';
-import 'package:bleau_todo_app/screens/settings_screen.dart'; // <--- Tambahkan ini
+import 'package:bleau_todo_app/screens/settings_screen.dart';
+import 'package:file_picker/file_picker.dart'; // Import FilePicker
+import 'package:open_filex/open_filex.dart'; // Import OpenFilex
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -24,10 +26,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   final TextEditingController _namaKegiatanController = TextEditingController();
   final TextEditingController _detailKegiatanController = TextEditingController();
 
-  DateTime? _initialSelectedDate;
-  DateTime? _initialSelectedDeadline;
-  String? _initialSelectedStatus;
-  String? _initialSelectedJenis;
+  // Variabel untuk menyimpan path lampiran yang dipilih dalam dialog
+  String? _selectedAttachmentPath;
 
   final List<String> _statusOptions = ['Belum Dimulai', 'Dalam Proses', 'Selesai'];
   final List<String> _jenisKegiatanOptions = ['Pribadi', 'Kerja', 'Wishlist', 'Lainnya'];
@@ -74,7 +74,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               _buildTasksPage(context),
               const CalendarScreen(),
               const DashboardChartScreen(),
-              const SettingsScreen(), // <--- Tambahkan SettingsScreen di sini
+              const SettingsScreen(),
             ];
             return bottomNavPages.elementAt(_selectedIndex);
           } else if (snapshot.hasError) {
@@ -91,19 +91,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
               onPressed: () {
                 _namaKegiatanController.clear();
                 _detailKegiatanController.clear();
-                _initialSelectedDate = DateTime.now();
-                _initialSelectedDeadline = null;
-                _initialSelectedStatus = null;
-                _initialSelectedJenis = null;
+                // Reset nilai awal untuk dialog tambah
+                _selectedAttachmentPath = null;
                 _showAddTaskDialog(context);
               },
               child: const Icon(Icons.add),
-              backgroundColor: Colors.blue,
+              backgroundColor: Theme.of(context).primaryColor, // Menggunakan warna tema
             )
           : null,
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       bottomNavigationBar: BottomNavigationBar(
-        backgroundColor: Colors.white,
+        backgroundColor: Theme.of(context).cardColor, // Menggunakan warna kartu dari tema
         selectedItemColor: Theme.of(context).primaryColor,
         unselectedItemColor: Colors.grey[600],
         type: BottomNavigationBarType.fixed,
@@ -124,7 +122,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             activeIcon: Icon(Icons.bar_chart),
             label: 'Rekapan',
           ),
-          BottomNavigationBarItem( // <--- Tambahkan item Settings
+          BottomNavigationBarItem(
             icon: Icon(Icons.settings_outlined),
             activeIcon: Icon(Icons.settings),
             label: 'Pengaturan',
@@ -140,10 +138,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _namaKegiatanController.text = taskToEdit?.name ?? '';
     _detailKegiatanController.text = taskToEdit?.detail ?? '';
 
-    DateTime? dialogSelectedDate = taskToEdit?.date ?? _initialSelectedDate;
-    DateTime? dialogSelectedDeadline = taskToEdit?.deadline ?? _initialSelectedDeadline;
-    String? dialogSelectedStatus = taskToEdit?.status ?? _initialSelectedStatus;
-    String? dialogSelectedJenis = taskToEdit?.type ?? _initialSelectedJenis;
+    // Inisialisasi variabel dialog dengan nilai taskToEdit atau nilai default
+    DateTime? dialogSelectedDate = taskToEdit?.date ?? DateTime.now();
+    DateTime? dialogSelectedDeadline = taskToEdit?.deadline;
+    String? dialogSelectedStatus = taskToEdit?.status ?? _statusOptions[0];
+    String? dialogSelectedJenis = taskToEdit?.type ?? _jenisKegiatanOptions[0];
+    _selectedAttachmentPath = taskToEdit?.attachmentPath; // Inisialisasi path lampiran
 
     showDialog(
       context: context,
@@ -151,8 +151,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         return StatefulBuilder(
           builder: (BuildContext context, StateSetter setDialogState) {
             return AlertDialog(
-              backgroundColor: Colors.white,
-              surfaceTintColor: Colors.white,
+              backgroundColor: Theme.of(context).cardColor, // Menggunakan warna kartu dari tema
+              surfaceTintColor: Theme.of(context).cardColor, // Menggunakan warna kartu dari tema
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               title: Text(taskToEdit == null ? 'Tambah Kegiatan Baru' : 'Edit Kegiatan',
                   style: Theme.of(context).textTheme.titleLarge),
@@ -246,18 +246,51 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         },
                       ),
                       const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text('Lampiran (Foto/Video/File)', style: Theme.of(context).textTheme.bodyMedium),
+                      // Bagian lampiran yang diperbarui
+                      InkWell(
+                        onTap: () async {
+                          FilePickerResult? result = await FilePicker.platform.pickFiles(
+                            type: FileType.any, // Izinkan semua jenis file
+                          );
+
+                          if (result != null) {
+                            setDialogState(() {
+                              _selectedAttachmentPath = result.files.single.path;
+                            });
+                          } else {
+                            // Pengguna membatalkan pemilihan
+                            setDialogState(() {
+                              _selectedAttachmentPath = null;
+                            });
+                          }
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8.0),
+                          child: Row(
+                            children: [
+                              Icon(Icons.attach_file, color: Colors.grey[600]),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  _selectedAttachmentPath != null
+                                      ? 'File Terpilih: ${_selectedAttachmentPath!.split('/').last.split('\\').last}'
+                                      : 'Tambahkan Lampiran (Opsional)',
+                                  style: Theme.of(context).textTheme.bodyMedium,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              if (_selectedAttachmentPath != null)
+                                IconButton(
+                                  icon: const Icon(Icons.clear, size: 20),
+                                  onPressed: () {
+                                    setDialogState(() {
+                                      _selectedAttachmentPath = null;
+                                    });
+                                  },
+                                ),
+                            ],
                           ),
-                          IconButton(
-                            icon: const Icon(Icons.attach_file),
-                            onPressed: () {
-                              print('Pilih Lampiran');
-                            },
-                          ),
-                        ],
+                        ),
                       ),
                     ],
                   ),
@@ -282,7 +315,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           status: dialogSelectedStatus ?? _statusOptions[0],
                           deadline: dialogSelectedDeadline,
                           type: dialogSelectedJenis ?? _jenisKegiatanOptions[0],
-                          attachmentPath: null,
+                          attachmentPath: _selectedAttachmentPath, // Simpan path lampiran
                         );
                         _taskBox.add(newTask);
                       } else {
@@ -292,6 +325,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         taskToEdit.status = dialogSelectedStatus ?? _statusOptions[0];
                         taskToEdit.deadline = dialogSelectedDeadline;
                         taskToEdit.type = dialogSelectedJenis ?? _jenisKegiatanOptions[0];
+                        taskToEdit.attachmentPath = _selectedAttachmentPath; // Simpan path lampiran
                         taskToEdit.save();
                       }
                       Navigator.of(dialogContext).pop();
@@ -311,7 +345,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       {bool withTime = false}) {
     return ListTile(
       title: Text(
-        '$label: ${selectedDateTime != null ? (withTime ? selectedDateTime.toLocal().toString().split('.')[0] : selectedDateTime.toLocal().toString().split(' ')[0]) : 'Pilih Tanggal${withTime ? ' & Jam' : ''}'}',
+        '$label: ${selectedDateTime != null ? (withTime ? DateFormat('dd MMM yyyy HH:mm').format(selectedDateTime) : DateFormat('dd MMM yyyy').format(selectedDateTime)) : 'Pilih Tanggal${withTime ? ' & Jam' : ''}'}',
         style: Theme.of(context).textTheme.bodyMedium,
       ),
       trailing: Icon(withTime ? Icons.access_time : Icons.calendar_today),
@@ -336,6 +370,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 pickedTime.hour,
                 pickedTime.minute,
               ));
+            } else {
+              // Jika waktu tidak dipilih, hanya gunakan tanggal
+              onDateTimeSelected(pickedDate);
             }
           } else {
             onDateTimeSelected(pickedDate);
@@ -388,12 +425,30 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 const Divider(),
                 _buildDetailRow(
                     'Detail Kegiatan', task.detail ?? '-'),
-                _buildDetailRow('Tanggal Kegiatan', task.date.toLocal().toString().split(' ')[0]),
+                _buildDetailRow('Tanggal Kegiatan', DateFormat('dd MMM yyyy').format(task.date)),
                 _buildDetailRow('Status Kegiatan', task.status),
                 _buildDetailRow('Jenis Kegiatan', task.type),
                 if (task.deadline != null)
-                  _buildDetailRow('Deadline', task.deadline!.toLocal().toString().split('.')[0]),
-                _buildDetailRow('Lampiran', task.attachmentPath ?? 'Tidak ada'),
+                  _buildDetailRow('Deadline', DateFormat('dd MMM yyyy HH:mm').format(task.deadline!)),
+                // Lampiran yang bisa diklik
+                GestureDetector(
+                  onTap: () async { // Pastikan onTap adalah async
+                    if (task.attachmentPath != null && task.attachmentPath!.isNotEmpty) {
+                      await OpenFilex.open(task.attachmentPath!); // Membuka file
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Tidak ada lampiran untuk dibuka.')),
+                      );
+                    }
+                  },
+                  child: _buildDetailRow(
+                    'Lampiran',
+                    task.attachmentPath != null && task.attachmentPath!.isNotEmpty
+                        ? task.attachmentPath!.split('/').last.split('\\').last
+                        : 'Tidak ada',
+                    isLink: task.attachmentPath != null && task.attachmentPath!.isNotEmpty, // Indikasikan bahwa itu adalah link
+                  ),
+                ),
                 const Divider(),
               ],
             ),
@@ -411,7 +466,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildDetailRow(String label, String value) {
+  Widget _buildDetailRow(String label, String value, {bool isLink = false}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4.0),
       child: Column(
@@ -424,7 +479,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
           const SizedBox(height: 2),
           Text(
             value,
-            style: const TextStyle(fontSize: 16),
+            style: TextStyle(
+              fontSize: 16,
+              color: isLink ? Theme.of(context).primaryColor : Theme.of(context).textTheme.bodyLarge?.color, // Warna dari tema
+              decoration: isLink ? TextDecoration.underline : TextDecoration.none, // Garis bawah jika link
+            ),
           ),
           const SizedBox(height: 8),
         ],
@@ -603,24 +662,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   children: [
                     Text(
                       task.name,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, color: Colors.blueGrey[800]),
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, color: Theme.of(context).textTheme.bodyLarge?.color),
                     ),
                     if (task.detail != null && task.detail!.isNotEmpty)
                       Padding(
                         padding: const EdgeInsets.only(top: 6.0),
                         child: Text(
                           task.detail!,
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.blueGrey[600]),
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.8)),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     const SizedBox(height: 12),
-                    _buildTaskInfoRow(Icons.calendar_today_outlined, 'Tanggal', task.date.toLocal().toString().split(' ')[0]),
+                    _buildTaskInfoRow(Icons.calendar_today_outlined, 'Tanggal', DateFormat('dd MMM yyyy').format(task.date)),
                     if (task.deadline != null)
-                      _buildTaskInfoRow(Icons.access_time, 'Deadline', task.deadline!.toLocal().toString().split('.')[0]),
+                      _buildTaskInfoRow(Icons.access_time, 'Deadline', DateFormat('dd MMM yyyy HH:mm').format(task.deadline!)),
                     _buildTaskInfoRow(Icons.category_outlined, 'Jenis', task.type),
                     _buildTaskInfoRow(Icons.info_outline, 'Status', task.status),
+                    if (task.attachmentPath != null && task.attachmentPath!.isNotEmpty)
+                      _buildTaskInfoRow(Icons.attach_file, 'Lampiran', task.attachmentPath!.split('/').last.split('\\').last),
                     const SizedBox(height: 12),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.end,
@@ -670,13 +731,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
       },
       selectedColor: Theme.of(context).primaryColor.withOpacity(0.2),
       labelStyle: TextStyle(
-        color: _selectedFilter == label ? Theme.of(context).primaryColor : Colors.grey[700],
+        color: _selectedFilter == label ? Theme.of(context).primaryColor : Theme.of(context).textTheme.bodyMedium?.color,
         fontWeight: FontWeight.w600,
       ),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(25),
         side: BorderSide(
-          color: _selectedFilter == label ? Theme.of(context).primaryColor : Colors.grey[300]!,
+          color: _selectedFilter == label ? Theme.of(context).primaryColor : Theme.of(context).dividerColor,
           width: 1.2,
         ),
       ),
@@ -710,11 +771,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
           const SizedBox(width: 6),
           Text(
             '$label: ',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold, color: Colors.blueGrey[700]),
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.bold, color: Theme.of(context).textTheme.bodyMedium?.color),
           ),
           Text(
             value,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.blueGrey[600]),
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.8)),
           ),
         ],
       ),
@@ -760,7 +821,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             const SizedBox(height: 20),
             Text(
               'Ayo mulai kelola kegiatanmu!',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.blueGrey[700]),
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Theme.of(context).textTheme.bodyLarge?.color),
             ),
           ],
         ),
