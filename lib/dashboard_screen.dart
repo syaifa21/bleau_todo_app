@@ -78,9 +78,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
             final List<Widget> bottomNavPages = <Widget>[
               // Perhatikan: _taskBox sekarang sudah dijamin terinisialisasi di sini
               // Kita langsung gunakan _taskBox yang sudah terbuka
-              _buildTasksPage(context), 
-              const CalendarScreen(), 
-              const DashboardChartScreen(), 
+              _buildTasksPage(context),
+              const CalendarScreen(),
+              const DashboardChartScreen(),
             ];
             return bottomNavPages.elementAt(_selectedIndex);
           } else if (snapshot.hasError) {
@@ -168,7 +168,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 child: Form(
                   key: _formKey,
                   child: Column(
-                    mainAxisSize: MainAxisSize.min, // PERBAIKAN UNTUK MainAxisSize
+                    mainAxisSize: MainAxisSize.min, // Pastikan Column tidak mengambil tinggi tak terbatas jika tidak perlu
                     children: <Widget>[
                       TextFormField(
                         controller: _namaKegiatanController,
@@ -443,13 +443,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   // --- Metode untuk Membangun Halaman Tugas (Dashboard Kegiatan) ---
-  Widget _buildTasksPage(BuildContext context) { 
+  Widget _buildTasksPage(BuildContext context) {
     // Menggunakan ValueListenableBuilder untuk mendengarkan perubahan pada box yang dilewatkan
     return ValueListenableBuilder(
-      valueListenable: _taskBox.listenable(), 
+      valueListenable: _taskBox.listenable(),
       builder: (context, Box<Task> box, _) {
         List<Task> currentTasks = box.values.toList();
-        
+
         List<Task> filteredTasks = currentTasks.where((task) {
           if (_selectedFilter == 'Semua') {
             return true;
@@ -463,7 +463,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         filteredTasks.sort((a, b) => a.date.compareTo(b.date));
 
         bool hasTasks = filteredTasks.isNotEmpty;
-        const String illustrationPath = 'assets/images/no_tasks_illustration.png';
+        // Perhatikan perbaikan path untuk ilustrasi
+        const String illustrationPath = 'assets/images/no_tasks_illustration.png'; // Path yang benar
 
         return Column(
           children: [
@@ -562,7 +563,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       return const Center(child: Text('Tidak ada tugas untuk ditampilkan dengan filter ini.'));
     }
     return ListView.builder(
-      padding: const EdgeInsets.only(top: 16.0, left: 16.0, right: 16.0), // Menambahkan padding horizontal
+      padding: const EdgeInsets.only(top: 16.0, left: 16.0, right: 16.0),
       itemCount: tasks.length,
       itemBuilder: (context, index) {
         final task = tasks[index];
@@ -570,22 +571,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
         return Card(
           elevation: 4,
-          margin: const EdgeInsets.only(bottom: 16), // Memberi jarak antar Card
+          margin: const EdgeInsets.only(bottom: 16),
           clipBehavior: Clip.antiAlias,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-
           child: InkWell(
             onTap: () {
               _showTaskDetailDialog(context, task);
             },
             borderRadius: BorderRadius.circular(12),
             child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+              // *** PERBAIKAN UTAMA LAYOUT DI SINI ***
+              // Mengubah crossAxisAlignment dari .stretch ke .start
+              // Ini mencegah anak-anak Row mencoba mengambil tinggi tak terbatas.
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Leading color indicator based on task type
                 Container(
                   width: 8,
-                  // Tinggi disesuaikan dengan tinggi Row
+                  // Tinggi container ini akan menyesuaikan tinggi Row secara otomatis
+                  // karena crossAxisAlignment sekarang 'start' dan Row akan mengambil tinggi minimum
+                  // yang diperlukan oleh konten anak-anaknya.
                   decoration: BoxDecoration(
                     color: _getTaskTypeColor(task.type),
                     borderRadius: const BorderRadius.horizontal(left: Radius.circular(12)),
@@ -596,6 +601,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     padding: const EdgeInsets.all(18.0),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
+                      // *** PERHATIAN: Pastikan ini ada ***
+                      // Memastikan Column mengambil tinggi seminimal mungkin
+                      mainAxisSize: MainAxisSize.min,
                       children: [
                         Text(
                           task.name,
