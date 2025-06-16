@@ -6,6 +6,7 @@ import 'package:bleau_todo_app/screens/calendar_screen.dart';
 import 'package:bleau_todo_app/screens/dashboard_chart_screen.dart';
 import 'package:intl/intl.dart';
 import 'dart:async';
+import 'package:bleau_todo_app/screens/settings_screen.dart'; // <--- Tambahkan ini
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -16,7 +17,6 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   int _selectedIndex = 0;
-  // Filter utama adalah berdasarkan status kegiatan
   String _selectedFilter = 'Semua';
 
   late Box<Task> _taskBox;
@@ -74,6 +74,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               _buildTasksPage(context),
               const CalendarScreen(),
               const DashboardChartScreen(),
+              const SettingsScreen(), // <--- Tambahkan SettingsScreen di sini
             ];
             return bottomNavPages.elementAt(_selectedIndex);
           } else if (snapshot.hasError) {
@@ -122,6 +123,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
             icon: Icon(Icons.bar_chart_outlined),
             activeIcon: Icon(Icons.bar_chart),
             label: 'Rekapan',
+          ),
+          BottomNavigationBarItem( // <--- Tambahkan item Settings
+            icon: Icon(Icons.settings_outlined),
+            activeIcon: Icon(Icons.settings),
+            label: 'Pengaturan',
           ),
         ],
         currentIndex: _selectedIndex,
@@ -426,23 +432,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // --- Metode untuk Membangun Halaman Tugas (Dashboard Kegiatan) ---
   Widget _buildTasksPage(BuildContext context) {
     return ValueListenableBuilder(
       valueListenable: _taskBox.listenable(),
       builder: (context, Box<Task> box, _) {
         List<Task> currentTasks = box.values.toList();
 
-        // LOGIKA FILTER UTAMA: Berdasarkan Status Kegiatan
         List<Task> filteredTasks = currentTasks.where((task) {
           if (_selectedFilter == 'Semua') {
             return true;
           }
-          // Filter hanya berdasarkan status
           return task.status == _selectedFilter;
         }).toList();
 
-        // Urutkan tugas berdasarkan tanggal, paling awal lebih dulu
         filteredTasks.sort((a, b) => a.date.compareTo(b.date));
 
         bool hasTasks = filteredTasks.isNotEmpty;
@@ -496,7 +498,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 16),
-                  // *** BARIS FILTER STATUS ***
+                  // *** BARIS FILTER UTAMA: STATUS ***
                   SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     padding: const EdgeInsets.symmetric(vertical: 4.0),
@@ -526,8 +528,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
             // *** BAGIAN UNTUK MENAMPILKAN TUGAS YANG DIKELOMPOKKAN BERDASARKAN JENIS ***
             Expanded(
               child: hasTasks
-                  ? SingleChildScrollView( // Menggunakan SingleChildScrollView untuk seluruh konten daftar tugas
-                      child: Column( // Column ini akan menampung semua grup jenis kegiatan
+                  ? SingleChildScrollView(
+                      child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           // Iterasi melalui setiap jenis kegiatan yang mungkin
@@ -552,9 +554,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold, color: Theme.of(context).primaryColor),
                                   ),
                                 ),
-                                // Gunakan Column dari _buildTaskCard untuk tugas-tugas dalam grup ini
                                 ...tasksForType.map((task) => _buildTaskCard(task)).toList(),
-                                // Beri jarak antar grup, kecuali jika ini grup terakhir
                                 if (_jenisKegiatanOptions.last != type)
                                   const SizedBox(height: 24),
                               ],
@@ -571,13 +571,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // Metode _buildTaskCard baru untuk membuat tampilan kartu tugas
   Widget _buildTaskCard(Task task) {
-    final taskKey = task.key; // Dapatkan key tugas untuk operasi hapus/edit
+    final taskKey = task.key;
 
     return Card(
       elevation: 4,
-      margin: const EdgeInsets.only(bottom: 16, left: 16, right: 16), // Tambah margin horizontal
+      margin: const EdgeInsets.only(bottom: 16, left: 16, right: 16),
       clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: InkWell(
