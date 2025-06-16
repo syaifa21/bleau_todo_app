@@ -4,6 +4,8 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:bleau_todo_app/models/task.dart';
 import 'package:bleau_todo_app/screens/calendar_screen.dart';
 import 'package:bleau_todo_app/screens/dashboard_chart_screen.dart';
+import 'package:intl/intl.dart'; // Tambahkan ini untuk format tanggal dan waktu
+import 'dart:async'; // Tambahkan ini untuk Timer
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -40,10 +42,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // Future yang akan menyimpan hasil inisialisasi Hive Box
   late Future<void> _hiveInitFuture;
 
+  // Untuk menampilkan tanggal dan waktu real-time
+  late Stream<DateTime> _dateTimeStream;
+
   @override
   void initState() {
     super.initState();
     _hiveInitFuture = _openHiveBox(); // Panggil metode untuk membuka box Hive
+
+    // Inisialisasi stream untuk tanggal dan waktu
+    _dateTimeStream = Stream.periodic(const Duration(seconds: 1), (_) => DateTime.now());
   }
 
   Future<void> _openHiveBox() async {
@@ -484,6 +492,34 @@ class _DashboardScreenState extends State<DashboardScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // --- Bagian baru untuk menampilkan tanggal dan jam ---
+                  StreamBuilder<DateTime>(
+                    stream: _dateTimeStream,
+                    builder: (context, snapshot) {
+                      if (snapshot.hasData) {
+                        final currentTime = snapshot.data!;
+                        final formattedDate = DateFormat('EEEE, dd MMMM yyyy', 'id_ID').format(currentTime); // Menggunakan locale Indonesia
+                        final formattedTime = DateFormat('HH:mm:ss').format(currentTime);
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              formattedDate,
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey[700]),
+                            ),
+                            Text(
+                              formattedTime,
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey[700]),
+                            ),
+                          ],
+                        );
+                      }
+                      return const SizedBox.shrink(); // Atau tampilkan loading indicator
+                    },
+                  ),
+                  const SizedBox(height: 8), // Spasi antara tanggal/jam dan salam
+                  // --- Akhir bagian tanggal dan jam ---
+
                   Text(
                     'Halo, Pengguna!',
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
